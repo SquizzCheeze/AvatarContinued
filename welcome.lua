@@ -36,13 +36,12 @@ local hadSavedVariables = AvatarDB ~= nil;
 -- ADD AN ENTRY AS PART OF RELEASING -- see CLAUDE.md's Releasing section.
 -- A version with no entry still shows the update note, just without bullets.
 local RELEASE_NOTES = {
-    ["1.0.0"] = {
-        "Avatar is back, updated for World of Warcraft 12.1.",
-        "Preview any saved Wardrobe outfit on your avatar from the Outfits page of the settings.",
-        "Camera zoom is remembered per race, so each of your characters frames correctly.",
-        "Hide Avatar in Combat now actually hides it.",
-        "Light colours, creating and deleting profiles, and the Options > AddOns entry all work again.",
+    ["1.7"] = {
         "This window is new: a short note about what changed, once per update. Type /avatar notes to see it again.",
+        "Hide Avatar in Combat now actually hides it.",
+        "Light colour swatches, creating a profile and deleting a profile all work again.",
+        "The Avatar Continued entry under Options > AddOns no longer leaves the settings window stranded off screen.",
+        "Opening the settings no longer nudges your saved values, such as avatar facing.",
     },
 };
 

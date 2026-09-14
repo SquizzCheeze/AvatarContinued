@@ -1,12 +1,7 @@
 Avatar Continued Changelog
 ==========================
 
-V1.0.0
-
-Avatar, brought back for World of Warcraft 12.1 with the original author's
-permission. It shows your character model on screen as part of your UI: move,
-scale and rotate it, change its lighting and pose, and preview any saved
-Wardrobe outfit on it.
+V1.7
 
 New:
 

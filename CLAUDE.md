@@ -67,7 +67,7 @@ To ship:
 1. Bump `## Version:` in `Avatar.toc` if needed; make sure `changelog.txt` covers exactly this version.
 2. Add a `RELEASE_NOTES["<version>"]` entry in `welcome.lua`: a few player-facing highlights, NOT a copy of the changelog. A missing entry is not fatal (the update note still appears, without bullets), which is exactly why it is easy to forget. It is keyed by the TOC version string, so adding it early is harmless.
 3. Dry run first: Actions > "Package and release" > Run workflow with `dry_run` ticked. Nothing uploads; the zip comes back as an artifact.
-4. `git tag -a v1.0.0 -m "Avatar Continued 1.0.0"` and `git push origin v1.0.0`.
+4. `git tag -a v1.7 -m "Avatar Continued 1.7"` and `git push origin v1.7` (substitute the version being shipped).
 
 Three failure modes a green checkmark will not show (all hit on the sibling addons first; Squizzumables' CLAUDE.md has the original writeups):
 

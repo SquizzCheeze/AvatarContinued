@@ -3,8 +3,8 @@ name: Package and release
 # Publishing is deliberately tied to TAGS, not to pushes: work on main as often
 # as you like, and nothing reaches CurseForge until you tag a version.
 #
-#   git tag -a v1.0.0 -m "Avatar Continued 1.0.0"
-#   git push origin v1.0.0
+#   git tag -a v1.7 -m "Avatar Continued 1.7"
+#   git push origin v1.7
 #
 # That builds the zip, uploads it to CurseForge (project 1533608, read from
 # ## X-Curse-Project-ID in the TOC) and attaches it to a GitHub release.
