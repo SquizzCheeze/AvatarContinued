@@ -7,9 +7,8 @@
     Ported from SquizzFrames' Modules/Welcome/Welcome.lua, which was itself
     ported from Squizzumables' Core/Welcome.lua. The details those two learned
     the hard way come with it: the scrolling body, the three-way
-    first-run/update/nothing decision, the seen-version key read straight off the
-    SavedVariable root, and the file-load snapshot of whether SavedVariables
-    existed at all.
+    first-run/update/nothing decision, and the seen-version key read straight
+    off the SavedVariable root.
 
     WHY THE NOTES ARE DUPLICATED HERE rather than read from changelog.txt: an
     addon cannot read its own text files at runtime, so anything shown in game
@@ -20,17 +19,6 @@
 local addon_name = ...;
 local Addon = _G[addon_name];
 if not Addon then return; end
-
--- IS THIS A FRESH INSTALL? Captured at file-load time, and it has to be.
---
--- SavedVariables are restored before an addon's Lua runs, but AceDB only
--- creates AvatarDB in OnInitialize, at ADDON_LOADED -- after every file has
--- executed. So right now AvatarDB is either nil (never played) or the player's
--- real saved table. Checked any later, every install looks identical.
---
--- The original Avatar addon used the same AvatarDB, so its players read as
--- upgraders here, which is what they are.
-local hadSavedVariables = AvatarDB ~= nil;
 
 -- Highlights per version, newest first, keyed by the .toc Version string.
 -- ADD AN ENTRY AS PART OF RELEASING -- see CLAUDE.md's Releasing section.
@@ -192,9 +180,12 @@ local function CheckVersion()
 
     if seen == nil then
         -- No record at all: either a genuinely new install, or an upgrade from
-        -- a version that predates this file. hadSavedVariables is the only
-        -- thing that can still tell them apart -- see its comment.
-        if hadSavedVariables then
+        -- a version that predates this file. Addon.hadSavedVariables, taken at
+        -- the top of OnInitialize, is the only thing that can still tell them
+        -- apart -- see the comment there for why it cannot be read any earlier
+        -- or later. The original Avatar addon used the same AvatarDB, so its
+        -- players correctly read as upgraders.
+        if Addon.hadSavedVariables then
             ShowUpdated(version);
         else
             ShowFirstRun();

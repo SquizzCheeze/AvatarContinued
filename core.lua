@@ -14,6 +14,17 @@ local function GetCurrentResolutionSize()
 end
 
 function Addon:OnInitialize()
+	-- Does this player already have saved settings? welcome.lua uses it to
+	-- tell a new install from an update. It has to be read HERE, first thing:
+	--
+	--   * NOT at file load. WoW runs an addon's Lua files first and only then
+	--     loads its SavedVariables, so AvatarDB is always nil at that point and
+	--     every install looked new (existing players got the welcome page).
+	--   * NOT after AceDB:New below, which creates AvatarDB when it is missing.
+	--
+	-- OnInitialize runs on ADDON_LOADED, after the SavedVariables are in.
+	Addon.hadSavedVariables = AvatarDB ~= nil;
+
 	local screen_width, screen_height = GetCurrentResolutionSize();
 	
 	SLASH_AVATAR1	= "/avatar";

@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `settings.lua` | The settings window (custom three-column dialog with a live preview model) and the Options > AddOns launcher page |
 | `settings.xml` | Templates for the settings window: category buttons, preview frame (inherits `BackdropTemplate`) |
 | `AvatarFrame.xml` | `AvatarModelFrame` (DressUpModel) and `AvatarInstructionsFrame` (unlock overlay) |
-| `welcome.lua` | First-run greeting and the once-per-update release notes (`RELEASE_NOTES`, `/avatar notes`). Ported from SquizzFrames/Squizzumables. It snapshots `AvatarDB ~= nil` at FILE LOAD to tell a new install from an upgrade (AceDB creates `AvatarDB` later, so any later check sees every install as existing), and stores `lastSeenVersion` on the `AvatarDB` root, outside profiles |
+| `welcome.lua` | First-run greeting and the once-per-update release notes (`RELEASE_NOTES`, `/avatar notes`). Ported from SquizzFrames/Squizzumables. New install vs upgrade comes from `Addon.hadSavedVariables`, snapshotted as the FIRST line of `OnInitialize`: WoW runs an addon's files before loading its SavedVariables (so a file-load check always sees nil), and `AceDB:New` creates `AvatarDB` right after (so a later check always sees a table). Stores `lastSeenVersion` on the `AvatarDB` root, outside profiles |
 
 ## How the model is dressed (read before touching appearance code)
 
