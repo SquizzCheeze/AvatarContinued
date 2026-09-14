@@ -88,11 +88,30 @@ function Addon:PLAYER_EQUIPMENT_CHANGED(event, slot_id, hasItem)
 	end
 end
 
+-- Was defined but never registered, so the undress aura was only noticed on the
+-- next unrelated refresh. Now driven by playerAuraWatcher below, and it acts
+-- only when the answer actually changes: player UNIT_AURA fires constantly and a
+-- full re-dress on each one would be wasted work.
+local lastUndressAura = nil;
 function Addon:UNIT_AURA(event, unit_id)
-	if(unit_id == "player") then
-		Addon:UpdateConditionalToggle();
-	end
+	if unit_id ~= "player" then return; end
+
+	-- nil means auras are secret right now and the answer is unknown. Leave the
+	-- model as it is rather than guessing (see Addon:PlayerHasAura).
+	local hasAura = Addon:PlayerHasAura(Addon.UNDRESS_AURA_SPELL_ID);
+	if hasAura == nil or hasAura == lastUndressAura then return; end
+	lastUndressAura = hasAura;
+
+	-- Re-dresses from the source list, so the aura dropping off puts the gear
+	-- back, then undresses again if the aura is still up.
+	Addon:RefreshEquipmentToggle();
 end
+
+-- Registered for "player" only in Addon:OnEnable.
+Addon.playerAuraWatcher = CreateFrame("Frame");
+Addon.playerAuraWatcher:SetScript("OnEvent", function(_, event, unit)
+	Addon:UNIT_AURA(event, unit);
+end);
 
 function Addon:UNIT_MODEL_CHANGED(event, unit)
 	if(unit == "player") then

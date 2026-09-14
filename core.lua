@@ -122,6 +122,10 @@ function Addon:OnEnable()
 	Addon:RegisterEvent("TRANSMOG_COLLECTION_UPDATED");
 	Addon:RegisterEvent("LOADING_SCREEN_DISABLED");
 
+	-- Player only, on a unit-filtered frame (events.lua) rather than AceEvent,
+	-- which would run for every raid member and nameplate just to discard it.
+	Addon.playerAuraWatcher:RegisterUnitEvent("UNIT_AURA", "player");
+
 	-- No RefreshAvatar() call here. OnEnable() fires very early -- on a
 	-- genuine login, potentially before equipment/customization data has
 	-- finished syncing from the server. Since SetUnit() can only safely run
@@ -132,16 +136,27 @@ function Addon:OnEnable()
 	-- timed appropriately for login vs. reload.
 end
 
+-- "Hide Avatar in Combat". This used to set the hiddenInCombat flag and nothing
+-- else, so the option did nothing. The frame is a plain DressUpModel parented to
+-- UIParent, not a protected frame, so hiding and showing it in combat is legal.
 function Addon:PLAYER_REGEN_DISABLED()
 	if(Addon.db.profile.hideInCombat) then
 		AvatarModelFrame.hiddenInCombat = true;
+		Addon:UpdateVisibility();
 	end
 end
 
 function Addon:PLAYER_REGEN_ENABLED()
 	if(AvatarModelFrame.hiddenInCombat) then
 		AvatarModelFrame.hiddenInCombat = false;
+		Addon:UpdateVisibility();
 	end
+end
+
+-- The one place that decides whether the avatar is on screen.
+function Addon:UpdateVisibility()
+	local shown = Addon.db.profile.enabled and not AvatarModelFrame.hiddenInCombat;
+	AvatarModelFrame:SetShown(shown and true or false);
 end
 
 local _modelLoadedBusy = false;
@@ -149,13 +164,23 @@ function AvatarModelFrame_OnModelLoaded(self)
 	if _modelLoadedBusy then return; end
 	if Addon and Addon.db and Addon.db.profile then
 		self:SetModelAlpha(Addon.db.profile.alpha);
+		-- Re-dressing the model during the refresh below fires OnModelLoaded
+		-- again, synchronously; this guard is what stops it re-entering itself.
+		-- The refresh runs under pcall so an error inside it cannot leave the
+		-- guard stuck on, which would silently disable this handler until a
+		-- /reload.
 		_modelLoadedBusy = true;
-		-- The model has just finished loading, so this is the point at which
-		-- its transmog info list is readable -- capture the baseline before
-		-- anything (an outfit, a hidden slot) alters it.
-		Addon:CaptureBaseline(self);
-		Addon:RefreshFrame();
+		local ok, err = pcall(function()
+			-- The model has just finished loading, so this is the point at which
+			-- its transmog info list is readable -- capture the baseline before
+			-- anything (an outfit, a hidden slot) alters it.
+			Addon:CaptureBaseline(self);
+			Addon:RefreshFrame();
+		end);
 		_modelLoadedBusy = false;
+		if not ok then
+			geterrorhandler()(err);
+		end
 	end
 end
 
@@ -178,14 +203,6 @@ end
 function AvatarModelFrame_OnLoad(self)
 	local screen_width, screen_height = GetCurrentResolutionSize();
 	self:SetResizeBounds(screen_height * 0.05, screen_height * 0.05, screen_height * 2.0, screen_height * 2.0);
-
-	-- Without this, TryOn()-based appearance previews (used for outfit preview)
-	-- can leave the widget's render scene stuck blank even though IsShown()/
-	-- IsVisible() report true -- the settings panel's preview model (which has
-	-- always rendered correctly) sets this in AvatarSettingsPreviewModel_OnLoad.
-	if self.SetCustomModel then
-		self:SetCustomModel(true);
-	end
 
 	self:EnableMouse(false);
 	self:EnableMouseWheel(false);
@@ -267,11 +284,7 @@ function Addon:UpdateLightDirection()
 end
 
 function Addon:SetFrameSettings()
-	if(Addon.db.profile.enabled) then
-		AvatarModelFrame:Show();
-	else
-		AvatarModelFrame:Hide();
-	end
+	Addon:UpdateVisibility();
 
 	AvatarModelFrame:ClearAllPoints();
 	local validPoints = {
@@ -724,19 +737,48 @@ function Addon:ApplyAnimation()
 	AvatarModelFrame:SetAnimation(anim);
 	if not NATURALLY_LOOPING_ANIMS[anim] then
 		AvatarModelFrame:SetScript("OnAnimFinished", function(self)
-			self:SetAnimation(anim);
+			-- Restart on the next frame, never from inside this handler. If the
+			-- model can't play the animation right now (still loading, hidden)
+			-- the engine can report it finished straight away, and restarting
+			-- synchronously would re-enter this handler until the C stack
+			-- overflowed. Deferred, the worst case is one restart per frame.
+			if self._avatarAnimRestartQueued then return; end
+			self._avatarAnimRestartQueued = true;
+			C_Timer.After(0, function()
+				self._avatarAnimRestartQueued = nil;
+				if (Addon.db.profile.animation or 0) == anim then
+					self:SetAnimation(anim);
+				end
+			end);
 		end);
 	else
 		AvatarModelFrame:SetScript("OnAnimFinished", nil);
 	end
 end
 
+-- The aura that strips the avatar down, inherited from the original addon.
+Addon.UNDRESS_AURA_SPELL_ID = 176438;
+
+-- true or false when the answer is knowable, nil when it is not.
+--
+-- On 12.x GetPlayerAuraBySpellID is SecretWhenUnitAuraRestricted and
+-- RequiresNonSecretAura: while aura restrictions are in effect (combat,
+-- encounters, Mythic+, PvP) it returns nothing at all, so an empty result then
+-- does not mean the aura is absent.
 function Addon:PlayerHasAura(spell_id)
+	if C_Secrets then
+		if C_Secrets.ShouldAurasBeSecret and C_Secrets.ShouldAurasBeSecret() then
+			return nil;
+		end
+		if C_Secrets.ShouldSpellAuraBeSecret and C_Secrets.ShouldSpellAuraBeSecret(spell_id) then
+			return nil;
+		end
+	end
 	return C_UnitAuras.GetPlayerAuraBySpellID(spell_id) ~= nil;
 end
 
 function Addon:UpdateConditionalToggle()
-	if(Addon:PlayerHasAura(176438)) then
+	if Addon:PlayerHasAura(Addon.UNDRESS_AURA_SPELL_ID) then
 		AvatarModelFrame:Undress();
 	end
 end

@@ -152,8 +152,13 @@ end
 -- ============================================================================
 
 local avatarSettingsPanel = nil;
-local avatarSettingsCategory = nil;
 local activeCategory = "general";
+
+-- True while RefreshAllSettingsFromDB is pushing saved values into the widgets.
+-- A slider's SetValue fires its OnValueChanged, which would otherwise write the
+-- value straight back -- rounded to the slider's step -- so just opening the
+-- panel quietly rewrote saved settings.
+local syncingFromDB = false;
 local categoryButtons = {};
 local settingsGroups = {};
 
@@ -206,7 +211,10 @@ function Addon:ApplySettingToPreview(variable, value)
             self:RefreshEquipmentOnModel(self.previewModel);
         end
     elseif variable == "avatar_hide_combat" then
-        -- No immediate visual change, handled by events
+        -- Applies straight away if the option is flipped mid-fight; otherwise
+        -- the combat events take it from here.
+        AvatarModelFrame.hiddenInCombat = (p.hideInCombat and InCombatLockdown()) and true or false;
+        self:UpdateVisibility();
     elseif variable == "avatar_alpha" then
         AvatarModelFrame:SetModelAlpha(p.alpha);
         if self.previewModel then
@@ -323,35 +331,18 @@ end
 
 function Addon:UpdateProfileDropdowns()
     if not avatarSettingsPanel then return; end
-    local profiles = self:GetProfileList();
-    local entries = {};
-    for _, name in ipairs(profiles) do
-        table.insert(entries, { text = name, value = name });
-    end
-
-    -- Update active profile dropdown
-    local actContainer = _G["AVSettings_active_profile"];
-    if actContainer and actContainer.UpdateEntries then
-        actContainer:UpdateEntries(entries);
-        UIDropDownMenu_SetText(actContainer.dropDown, Addon.db:GetCurrentProfile());
-    end
-
-    -- Update copy-from dropdown
-    local cpContainer = _G["AVSettings_copy_profile"];
-    if cpContainer and cpContainer.UpdateEntries then
-        cpContainer:UpdateEntries(entries);
+    -- Both profile dropdowns read Addon:GetProfileList() and the current
+    -- profile whenever their menu is generated, so a regenerate is all a
+    -- profile change needs.
+    for _, name in ipairs({ "AVSettings_active_profile", "AVSettings_copy_profile" }) do
+        local container = _G[name];
+        if container and container.RefreshSelection then
+            container:RefreshSelection();
+        end
     end
 end
 
-function Addon:RefreshAllSettingsFromDB()
-    -- Mapping: variable -> entries for dropdowns
-    local DROPDOWN_ENTRIES = {
-        avatar_anchor_point = ANCHOR_OPTIONS,
-        avatar_rel_point    = ANCHOR_OPTIONS,
-        avatar_frame_strata = STRATA_OPTIONS,
-        avatar_animation    = ANIMATION_OPTIONS,
-    };
-
+local function SyncWidgetsFromDB()
     for variable, meta in pairs(SETTING_META) do
         local widget = _G["AVSettings_" .. variable];
         if widget then
@@ -362,7 +353,11 @@ function Addon:RefreshAllSettingsFromDB()
                 displayValue = not rawValue;
             end
 
-            if meta.type == "Boolean" and widget.SetChecked then
+            if widget.RefreshSelection then
+                -- Dropdown: its IsSelected callback reads the DB directly.
+                widget:RefreshSelection();
+
+            elseif meta.type == "Boolean" and widget.SetChecked then
                 -- Checkbox
                 widget:SetChecked(displayValue);
 
@@ -382,29 +377,24 @@ function Addon:RefreshAllSettingsFromDB()
                 end
                 widget.editBox:SetText(tostring(numVal));
 
-            elseif meta.type == "String" and widget.dropDown then
-                -- Dropdown widget
-                local entries = DROPDOWN_ENTRIES[variable];
-                if entries then
-                    for _, entry in ipairs(entries) do
-                        if entry.value == displayValue then
-                            UIDropDownMenu_SetText(widget.dropDown, entry.text);
-                            break;
-                        end
-                    end
-                end
-
-            elseif meta.type == "Color" and widget.colorTex then
+            elseif meta.type == "Color" and widget.SetColor then
                 -- Color picker
-                local r, g, b = 1, 1, 1;
                 if rawValue and rawValue[1] then
-                    r = rawValue[1] or 1;
-                    g = rawValue[2] or 1;
-                    b = rawValue[3] or 1;
+                    widget:SetColor(rawValue[1] or 1, rawValue[2] or 1, rawValue[3] or 1);
                 end
-                widget.colorTex:SetVertexColor(r, g, b);
             end
         end
+    end
+end
+
+function Addon:RefreshAllSettingsFromDB()
+    -- See syncingFromDB. pcall so an error part-way can't leave the flag stuck
+    -- on, which would stop every slider saving until a /reload.
+    syncingFromDB = true;
+    local ok, err = pcall(SyncWidgetsFromDB);
+    syncingFromDB = false;
+    if not ok then
+        geterrorhandler()(err);
     end
 
     -- Update profile dropdowns
@@ -509,16 +499,17 @@ end
 -- Preview Frame Template Handler
 -- ============================================================================
 
-function AvatarSettingsPreviewTemplate_OnLoad(self)
-    if not Mixin then return; end
-    Mixin(self, BackdropTemplateMixin);
-    self:SetBackdrop({
+-- The template inherits BackdropTemplate in settings.xml, which wires up the
+-- OnSizeChanged handler a backdrop needs. It used to mix BackdropTemplateMixin in
+-- by hand, which skipped that wiring, so the border never followed a resize.
+local function StylePreviewFrame(frame)
+    frame:SetBackdrop({
         bgFile   = "Interface\\BUTTONS\\WHITE8X8",
         edgeFile = "Interface\\BUTTONS\\WHITE8X8",
         edgeSize = 1,
     });
-    self:SetBackdropColor(0.06, 0.06, 0.08, 0.96);
-    self:SetBackdropBorderColor(0.25, 0.25, 0.30, 1);
+    frame:SetBackdropColor(0.06, 0.06, 0.08, 0.96);
+    frame:SetBackdropBorderColor(0.25, 0.25, 0.30, 1);
 end
 
 -- ============================================================================
@@ -526,11 +517,6 @@ end
 -- ============================================================================
 
 function AvatarSettingsPreviewModel_OnLoad(self)
-    -- DressUpModel may not have SetCustomModel in all versions; guard it
-    if self.SetCustomModel then
-        self:SetCustomModel(true);
-    end
-
     -- Keep the model loaded when this panel is closed. Without this the
     -- client discards the model on hide and reloads it on show, and that
     -- reload re-derives geosets through the path that corrupts Vulpera's
@@ -546,8 +532,9 @@ function AvatarSettingsPreviewModel_OnLoad(self)
 end
 
 function AvatarSettingsPreviewModel_OnModelLoaded(self)
-    -- IMPORTANT: Do NOT call RefreshEquipmentOnModel here — it calls Dress() which
-    -- triggers OnModelLoaded again, creating an infinite loop.
+    -- IMPORTANT: Do NOT call RefreshEquipmentOnModel here. It re-dresses the
+    -- model, which fires OnModelLoaded again synchronously, and nothing here
+    -- guards against re-entry -- that is an infinite loop.
     if Addon and Addon.db and Addon.db.profile then
         if self.SetModelAlpha then
             self:SetModelAlpha(Addon.db.profile.alpha);
@@ -623,18 +610,18 @@ local function CreateAVSlider(parent, variable, label, tooltip, minVal, maxVal, 
     labelStr:SetText(label);
     labelStr:SetTextColor(0.9, 0.9, 0.9);
 
-    -- Slider (must have a name for OptionsSliderTemplate sub-frames like Low/High/Text)
-    local slider = CreateFrame("Slider", "AVSettings_" .. variable .. "Slider", container, "OptionsSliderTemplate");
+    -- UISliderTemplateWithLabels is what the deprecated OptionsSliderTemplate
+    -- inherited (it now lives in Blizzard's DeprecatedTemplates.xml), so this
+    -- looks identical and survives that template being removed.
+    local slider = CreateFrame("Slider", "AVSettings_" .. variable .. "Slider", container, "UISliderTemplateWithLabels");
     slider:SetPoint("TOPLEFT", container, "TOPLEFT", 4, -20);
     slider:SetSize(width - 60, 16);
     slider:SetMinMaxValues(minVal, maxVal);
     slider:SetValueStep(step);
     slider:SetObeyStepOnDrag(true);
 
-    local lowText = _G[slider:GetName() .. "Low"];
-    local highText = _G[slider:GetName() .. "High"];
-    if lowText then lowText:SetText(tostring(minVal)); end
-    if highText then highText:SetText(tostring(maxVal)); end
+    if slider.Low then slider.Low:SetText(tostring(minVal)); end
+    if slider.High then slider.High:SetText(tostring(maxVal)); end
 
     -- Value text
     local valueStr = container:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall");
@@ -678,12 +665,38 @@ local function CreateAVSlider(parent, variable, label, tooltip, minVal, maxVal, 
         else
             valueStr:SetText(string.format("%.2f", value));
         end
+        -- Label only while the panel is syncing from the DB (see syncingFromDB).
+        if syncingFromDB then return; end
         ApplySettingChange(variable, value);
     end);
 
     container.slider = slider;
     container.valueStr = valueStr;
     return container;
+end
+
+-- Dropdowns are built on WowStyle1DropdownTemplate and the Menu API. The old
+-- UIDropDownMenu still exists on 12.1 but is legacy; Blizzard's own UI moved off
+-- it in 11.0, and driving it from addon code writes the shared UIDROPDOWNMENU_*
+-- state that Blizzard's dropdowns also read, a classic source of taint.
+local function CreateDropdownButton(container, name)
+    local dd = CreateFrame("DropdownButton", name, container, "WowStyle1DropdownTemplate");
+    dd:SetPoint("TOPLEFT", container, "TOPLEFT", 8, -20);
+    dd:SetWidth(170);
+    return dd;
+end
+
+local function AddDropdownTooltip(dd, label, tooltip)
+    if not tooltip then return; end
+    -- HookScript, not SetScript: the template's own OnEnter/OnLeave drive its
+    -- hover art.
+    dd:HookScript("OnEnter", function(self)
+        GameTooltip_SetDefaultAnchor(GameTooltip, self);
+        GameTooltip:SetText(label, 1, 1, 1);
+        GameTooltip:AddLine(tooltip, nil, nil, nil, true);
+        GameTooltip:Show();
+    end);
+    dd:HookScript("OnLeave", function() GameTooltip:Hide(); end);
 end
 
 --- Create a dropdown widget
@@ -697,66 +710,36 @@ local function CreateAVDropdown(parent, variable, label, tooltip, entries)
     labelStr:SetText(label);
     labelStr:SetTextColor(0.9, 0.9, 0.9);
 
-    -- DropDown
-    local dd = CreateFrame("Frame", "AVSettings_" .. variable .. "DD", container, "UIDropDownMenuTemplate");
-    dd:SetPoint("TOPLEFT", container, "TOPLEFT", 4, -20);
-    dd:SetSize(180, 24);
-
-    -- Initial value
+    local dd = CreateDropdownButton(container, "AVSettings_" .. variable .. "DD");
     local meta = SETTING_META[variable];
-    local initVal = meta and GetDBValue(meta.dbPath) or nil;
 
-    local function DD_OnClick(self)
-        initVal = self.value;
-        UIDropDownMenu_SetText(dd, self:GetText());
-        UIDropDownMenu_SetSelectedValue(dd, self.value);
-        ApplySettingChange(variable, self.value);
+    -- Selection is read from the DB every time the menu is generated, so the
+    -- dropdown can never disagree with the saved value.
+    local function IsSelected(value)
+        return meta ~= nil and GetDBValue(meta.dbPath) == value;
     end
 
-    local function DD_Initialize()
+    local function SetSelected(value)
+        ApplySettingChange(variable, value);
+    end
+
+    dd:SetupMenu(function(_, rootDescription)
         for _, entry in ipairs(entries) do
-            local info = UIDropDownMenu_CreateInfo();
-            info.text = entry.text;
-            info.value = entry.value;
-            info.func = DD_OnClick;
-            info.checked = (entry.value == initVal);
-            UIDropDownMenu_AddButton(info);
+            rootDescription:CreateRadio(entry.text, IsSelected, SetSelected, entry.value);
         end
-    end
-
-    dd:SetScript("OnMouseDown", function(self)
-        ToggleDropDownMenu(nil, nil, self);
     end);
 
-    UIDropDownMenu_Initialize(dd, DD_Initialize);
-    UIDropDownMenu_SetWidth(dd, 170);
-
-    -- Set initial text
-    for _, entry in ipairs(entries) do
-        if entry.value == initVal then
-            UIDropDownMenu_SetText(dd, entry.text);
-            break;
-        end
-    end
-
-    if tooltip then
-        dd:SetScript("OnEnter", function(self)
-            GameTooltip_SetDefaultAnchor(GameTooltip, self);
-            GameTooltip:SetText(label, 1, 1, 1);
-            GameTooltip:AddLine(tooltip, nil, nil, nil, true);
-            GameTooltip:Show();
-        end);
-        dd:SetScript("OnLeave", function() GameTooltip:Hide(); end);
-    end
+    AddDropdownTooltip(dd, label, tooltip);
 
     container.dropDown = dd;
-    container.DD_Initialize = DD_Initialize;
-    container.DD_OnClick = DD_OnClick;
 
-    -- Add a SetEntries function for dynamic update
     function container:SetEntries(newEntries)
         entries = newEntries;
-        UIDropDownMenu_Initialize(dd, DD_Initialize);
+        dd:GenerateMenu();
+    end
+
+    function container:RefreshSelection()
+        dd:GenerateMenu();
     end
 
     return container;
@@ -809,13 +792,31 @@ local function CreateAVColorPicker(parent, variable, label, tooltip)
     end
     color:SetVertexColor(r, g, b);
 
-    swatch:SetScript("OnClick", function(self)
-        ColorPickerFrame:SetupRGB(function(cInfo)
-            local nr, ng, nb = ColorPickerFrame:GetColorRGB();
-            color:SetVertexColor(nr, ng, nb);
+    local function SetSwatchColor(nr, ng, nb)
+        r, g, b = nr, ng, nb;
+        color:SetVertexColor(nr, ng, nb);
+    end
+
+    swatch:SetScript("OnClick", function()
+        local function Apply(nr, ng, nb)
+            SetSwatchColor(nr, ng, nb);
             ApplySettingChange(variable, { nr, ng, nb });
-        end, r, g, b, "Avatar: " .. label, nil, nil, nil, nil);
-        ColorPickerFrame:Show();
+        end
+        -- SetupColorPickerAndShow is the current API. This used to call
+        -- ColorPickerFrame:SetupRGB, which does not exist on 12.1, so clicking
+        -- either light colour threw an error.
+        ColorPickerFrame:SetupColorPickerAndShow({
+            r = r, g = g, b = b,
+            hasOpacity = false,
+            swatchFunc = function()
+                Apply(ColorPickerFrame:GetColorRGB());
+            end,
+            cancelFunc = function(previousValues)
+                if previousValues then
+                    Apply(previousValues.r, previousValues.g, previousValues.b);
+                end
+            end,
+        });
     end);
 
     if tooltip then
@@ -830,6 +831,11 @@ local function CreateAVColorPicker(parent, variable, label, tooltip)
 
     container.swatch = swatch;
     container.colorTex = color;
+    -- Keeps the picker's starting colour (and a cancel's restore point) in step
+    -- when the panel re-syncs from the DB, e.g. after a profile switch.
+    function container:SetColor(nr, ng, nb)
+        SetSwatchColor(nr, ng, nb);
+    end
     return container;
 end
 
@@ -993,15 +999,8 @@ function Addon:CreateSettingsPanel()
     avatarSettingsPanel:SetScript("OnHide", AvatarSettingsPanel_OnHide);
     avatarSettingsPanel:SetScript("OnEvent", HandlePanelEvents);
 
-    -- Register with Settings API (for Game Menu integration)
-    -- FIXED: No extra 'Settings' argument in pcall — pass args directly
-    local ok, cat = pcall(Settings.RegisterCanvasLayoutCategory, avatarSettingsPanel, avatarSettingsPanel.name);
-    if ok then
-        avatarSettingsCategory = cat;
-        pcall(Settings.RegisterAddOnCategory, avatarSettingsCategory);
-    else
-        avatarSettingsCategory = nil;
-    end
+    -- Deliberately NOT registered with the Settings API: see the launcher page
+    -- at the bottom of this file for why this window can't be a canvas.
 
     -- ==========================================================================
     -- LEFT COLUMN: Category List
@@ -1080,6 +1079,7 @@ function Addon:CreateSettingsPanel()
     -- RIGHT COLUMN: Live Preview
     -- ==========================================================================
     local previewFrame = CreateFrame("Frame", nil, avatarSettingsPanel, "AvatarSettingsPreviewTemplate");
+    StylePreviewFrame(previewFrame);
     previewFrame:SetPoint("TOPRIGHT", avatarSettingsPanel, "TOPRIGHT", -4, -40);
     previewFrame.Model:SetPoint("TOPLEFT", previewFrame, "TOPLEFT", 4, -44);
     previewFrame.Model:SetPoint("BOTTOMRIGHT", previewFrame, "BOTTOMRIGHT", -4, 44);
@@ -1485,45 +1485,30 @@ function Addon:BuildProfileSettings(parent, sy)
     end);
     sy = sy - 36;
 
-    -- Active Profile dropdown
-    local profiles = Addon:GetProfileList();
-    local profileEntries = {};
-    for _, name in ipairs(profiles) do
-        table.insert(profileEntries, { text = name, value = name });
-    end
-
-    -- Build active profile dropdown manually (non-standard behavior)
+    -- Active Profile dropdown. Entries and selection are both read live when
+    -- the menu is generated, so a new, deleted or switched profile shows up on
+    -- the next RefreshSelection with no list to keep in sync.
     local actContainer = CreateFrame("Frame", "AVSettings_active_profile", parent);
     actContainer:SetSize(380, 44);
     local actLabel = actContainer:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
     actLabel:SetPoint("TOPLEFT", actContainer, "TOPLEFT", 4, -2);
     actLabel:SetText("Active Profile");
     actLabel:SetTextColor(0.9, 0.9, 0.9);
-    local actDD = CreateFrame("Frame", "AVSettings_active_profile_DD", actContainer, "UIDropDownMenuTemplate");
-    actDD:SetPoint("TOPLEFT", actContainer, "TOPLEFT", 4, -20);
-    actDD:SetSize(180, 24);
-    UIDropDownMenu_SetWidth(actDD, 170);
-    UIDropDownMenu_SetText(actDD, Addon.db:GetCurrentProfile());
-    local actEntries = profileEntries;
-    local function ActDD_OnClick(self)
-        UIDropDownMenu_SetText(actDD, self:GetText());
-        Addon:ChangeProfileByName(self.value);
-    end
-    local function ActDD_Init()
-        local info = UIDropDownMenu_CreateInfo();
-        for _, entry in ipairs(actEntries) do
-            info.text = entry.text;
-            info.value = entry.value;
-            info.func = ActDD_OnClick;
-            UIDropDownMenu_AddButton(info);
+    local actDD = CreateDropdownButton(actContainer, "AVSettings_active_profile_DD");
+    actDD:SetupMenu(function(_, rootDescription)
+        local function IsSelected(name)
+            return Addon.db:GetCurrentProfile() == name;
         end
-    end
-    UIDropDownMenu_Initialize(actDD, ActDD_Init);
-    actDD:SetScript("OnMouseDown", function(self) ToggleDropDownMenu(nil, nil, self); end);
+        local function SetSelected(name)
+            Addon:ChangeProfileByName(name);
+        end
+        for _, name in ipairs(Addon:GetProfileList()) do
+            rootDescription:CreateRadio(name, IsSelected, SetSelected, name);
+        end
+    end);
     actContainer.dropDown = actDD;
-    function actContainer:UpdateEntries(newEntries)
-        actEntries = newEntries;
-        UIDropDownMenu_Initialize(actDD, ActDD_Init);
+    function actContainer:RefreshSelection()
+        actDD:GenerateMenu();
     end
     actContainer:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, sy);
     sy = sy - 52;
@@ -1544,69 +1529,44 @@ function Addon:BuildProfileSettings(parent, sy)
     delBtn:SetText("Delete Current");
     delBtn:SetScript("OnClick", function()
         local name = Addon.db:GetCurrentProfile();
-        AVATAR_DELETE_PROFILE_NAME = name;
         if avatarSettingsPanel then
             avatarSettingsPanel:Hide();
         end
-        StaticPopup_Show("AVATAR_DELETE_PROFILE_CONFIRM", name);
+        -- The name goes as the popup's data; see AVATAR_DELETE_PROFILE_CONFIRM
+        -- in options.lua for why it no longer goes through a global.
+        StaticPopup_Show("AVATAR_DELETE_PROFILE_CONFIRM", name, nil, name);
     end);
     sy = sy - 36;
 
-    -- Copy from Profile dropdown
+    -- Copy from Profile dropdown. An action list rather than a selection, so it
+    -- uses plain buttons and a placeholder label.
     local cpContainer = CreateFrame("Frame", "AVSettings_copy_profile", parent);
     cpContainer:SetSize(380, 44);
     local cpLabel = cpContainer:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
     cpLabel:SetPoint("TOPLEFT", cpContainer, "TOPLEFT", 4, -2);
     cpLabel:SetText("Copy settings from:");
     cpLabel:SetTextColor(0.9, 0.9, 0.9);
-    local cpDD = CreateFrame("Frame", "AVSettings_copy_profile_DD", cpContainer, "UIDropDownMenuTemplate");
-    cpDD:SetPoint("TOPLEFT", cpContainer, "TOPLEFT", 4, -20);
-    cpDD:SetSize(180, 24);
-    UIDropDownMenu_SetWidth(cpDD, 170);
-    local cpEntries = profileEntries;
-    local function CpDD_OnClick(self)
-        UIDropDownMenu_SetText(cpDD, self:GetText());
-        Addon:CopyProfileByName(self.value);
-    end
-    local function CpDD_Init()
-        local info = UIDropDownMenu_CreateInfo();
-        for _, entry in ipairs(cpEntries) do
-            info.text = entry.text;
-            info.value = entry.value;
-            info.func = CpDD_OnClick;
-            UIDropDownMenu_AddButton(info);
+    local cpDD = CreateDropdownButton(cpContainer, "AVSettings_copy_profile_DD");
+    cpDD:SetDefaultText("Choose a profile");
+    cpDD:SetupMenu(function(_, rootDescription)
+        local current = Addon.db:GetCurrentProfile();
+        for _, name in ipairs(Addon:GetProfileList()) do
+            -- AceDB refuses to copy a profile onto itself.
+            if name ~= current then
+                rootDescription:CreateButton(name, function()
+                    Addon:CopyProfileByName(name);
+                end);
+            end
         end
-    end
-    UIDropDownMenu_Initialize(cpDD, CpDD_Init);
-    cpDD:SetScript("OnMouseDown", function(self) ToggleDropDownMenu(nil, nil, self); end);
+    end);
     cpContainer.dropDown = cpDD;
-    function cpContainer:UpdateEntries(newEntries)
-        cpEntries = newEntries;
-        UIDropDownMenu_Initialize(cpDD, CpDD_Init);
+    function cpContainer:RefreshSelection()
+        cpDD:GenerateMenu();
     end
     cpContainer:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, sy);
     sy = sy - 52;
 
     return sy;
-end
-
--- ============================================================================
--- Refreshes the settings panel's data/preview-model path (building the panel
--- if it doesn't exist yet) without ever letting it actually render on screen
--- -- hidden in the same tick it's built, before it can be composited. Used
--- as a workaround nudge after a fresh login: something about building/
--- refreshing this path (specifically the preview DressUpModel it creates)
--- unsticks AvatarModelFrame's render when called right after the outfit
--- preview has just been applied to it. No visible flash needed.
--- ============================================================================
-
-function Addon:RefreshSettingsDataOnly()
-    if not avatarSettingsPanel then
-        self:CreateSettingsPanel();
-        avatarSettingsPanel:Hide();
-    else
-        self:RefreshAllSettingsFromDB();
-    end
 end
 
 -- ============================================================================
@@ -1672,9 +1632,45 @@ function Addon:CloseOptions()
 end
 
 -- ============================================================================
--- Initialize
+-- Game Menu -> Options -> AddOns entry
 -- ============================================================================
+-- A small launcher page, NOT the settings window itself.
+--
+-- The Settings API reparents a canvas frame into its own window while that
+-- category is selected, and on leaving it calls SetParent(nil), ClearAllPoints()
+-- and Hide() on the frame (SettingsPanelMixin:ClearCurrentCategoryCanvas in
+-- Blizzard_SettingsPanel.lua). The settings window used to be registered that
+-- way, so a single visit left it with no parent and no anchor, and it was only
+-- registered after the first /avatar of the session anyway. This page is
+-- registered at load and just opens the real window.
 
-function Addon:InitializeSettings()
-    self:CreateSettingsPanel();
+do
+    if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
+        local launcher = CreateFrame("Frame");
+
+        local title = launcher:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge");
+        title:SetPoint("TOPLEFT", launcher, "TOPLEFT", 16, -16);
+        title:SetText("Avatar Continued");
+
+        local desc = launcher:CreateFontString(nil, "ARTWORK", "GameFontHighlight");
+        desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -10);
+        desc:SetWidth(520);
+        desc:SetJustifyH("LEFT");
+        desc:SetText("Avatar's settings open in their own window, with a live preview of your character. You can also open them any time with /avatar.");
+
+        local openButton = CreateFrame("Button", nil, launcher, "UIPanelButtonTemplate");
+        openButton:SetSize(200, 26);
+        openButton:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -16);
+        openButton:SetText("Open Avatar Settings");
+        openButton:SetScript("OnClick", function()
+            if SettingsPanel and SettingsPanel:IsShown() then
+                SettingsPanel:Close();
+            end
+            Addon:ShowOptions();
+        end);
+
+        local category = Settings.RegisterCanvasLayoutCategory(launcher, "Avatar Continued");
+        Settings.RegisterAddOnCategory(category);
+        Addon.settingsCategory = category;
+    end
 end

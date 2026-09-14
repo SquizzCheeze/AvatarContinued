@@ -31,12 +31,11 @@
         <HighlightFont style="GameFontHighlight"/>
     </Button>
 
-    <!-- Preview Frame Template (Right Column) -->
-    <Frame name="AvatarSettingsPreviewTemplate" virtual="true">
+    <!-- Preview Frame Template (Right Column). Inherits BackdropTemplate so the
+         backdrop follows resizes; its border and colours are set in Lua by
+         StylePreviewFrame in settings.lua. -->
+    <Frame name="AvatarSettingsPreviewTemplate" virtual="true" inherits="BackdropTemplate">
         <Size x="380" y="600"/>
-        <Scripts>
-            <OnLoad function="AvatarSettingsPreviewTemplate_OnLoad"/>
-        </Scripts>
         <Layers>
             <Layer level="BACKGROUND">
                 <Texture name="$parentBg" parentKey="Bg" setAllPoints="true">
