@@ -1,0 +1,105 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
+..\FrameXML\UI.xsd">
+
+    <!-- Category Button Template (Left Column) -->
+    <Button name="AvatarSettingsCategoryButtonTemplate" virtual="true">
+        <Size x="160" y="32"/>
+        <Layers>
+            <Layer level="BACKGROUND">
+                <Texture name="$parentHighlight" parentKey="Highlight" setAllPoints="true" hidden="true" alphaMode="ADD">
+                    <Color r="0.78" g="0.65" b="0.30" a="0.3"/>
+                </Texture>
+                <Texture name="$parentSelected" parentKey="Selected" setAllPoints="true" hidden="true">
+                    <Color r="0.78" g="0.65" b="0.30" a="0.5"/>
+                </Texture>
+            </Layer>
+            <Layer level="ARTWORK">
+                <FontString name="$parentText" parentKey="Text" inherits="GameFontNormal" justifyH="LEFT">
+                    <Anchors>
+                        <Anchor point="LEFT" x="12" y="0"/>
+                        <Anchor point="RIGHT" x="-12" y="0"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
+        <Scripts>
+            <OnClick function="AvatarSettingsCategoryButton_OnClick"/>
+            <OnEnter function="AvatarSettingsCategoryButton_OnEnter"/>
+            <OnLeave function="AvatarSettingsCategoryButton_OnLeave"/>
+        </Scripts>
+        <NormalFont style="GameFontNormal"/>
+        <HighlightFont style="GameFontHighlight"/>
+    </Button>
+
+    <!-- Preview Frame Template (Right Column) -->
+    <Frame name="AvatarSettingsPreviewTemplate" virtual="true">
+        <Size x="380" y="600"/>
+        <Scripts>
+            <OnLoad function="AvatarSettingsPreviewTemplate_OnLoad"/>
+        </Scripts>
+        <Layers>
+            <Layer level="BACKGROUND">
+                <Texture name="$parentBg" parentKey="Bg" setAllPoints="true">
+                    <Color r="0.06" g="0.06" b="0.08" a="0.96"/>
+                </Texture>
+            </Layer>
+            <Layer level="ARTWORK">
+                <FontString name="$parentTitle" parentKey="Title" inherits="GameFontNormalLarge" justifyH="CENTER">
+                    <Anchors>
+                        <Anchor point="TOP" x="0" y="-16"/>
+                    </Anchors>
+                    <Color r="1" g="1" b="1" a="1"/>
+                </FontString>
+            </Layer>
+        </Layers>
+        <Frames>
+            <!-- Live Preview DressUpModel -->
+            <DressUpModel name="$parentModel" parentKey="Model">
+                <Anchors>
+                    <Anchor point="TOPLEFT" x="4" y="-44"/>
+                    <Anchor point="BOTTOMRIGHT" x="-4" y="44"/>
+                </Anchors>
+                <Scripts>
+                    <OnLoad function="AvatarSettingsPreviewModel_OnLoad"/>
+                    <OnModelLoaded function="AvatarSettingsPreviewModel_OnModelLoaded"/>
+                </Scripts>
+            </DressUpModel>
+
+            <!-- Preview Control Bar (Lock/Unlock) -->
+            <Frame name="$parentControlBar" parentKey="ControlBar">
+                <Size x="372" y="36"/>
+                <Anchors>
+                    <Anchor point="BOTTOM" x="0" y="4"/>
+                </Anchors>
+                <Layers>
+                    <Layer level="BACKGROUND">
+                        <Texture name="$parentControlBarBg" parentKey="ControlBarBg" setAllPoints="true">
+                            <Color r="0.10" g="0.10" b="0.13" a="1"/>
+                        </Texture>
+                    </Layer>
+                    <Layer level="ARTWORK">
+                        <FontString name="$parentStatus" parentKey="Status" inherits="GameFontNormalSmall" justifyH="CENTER">
+                            <Anchors>
+                                <Anchor point="LEFT" x="8" y="0"/>
+                                <Anchor point="RIGHT" x="-8" y="0"/>
+                            </Anchors>
+                            <Color r="0.78" g="0.65" b="0.30" a="1"/>
+                        </FontString>
+                    </Layer>
+                </Layers>
+                <Frames>
+                    <Button name="$parentLockButton" parentKey="LockButton" inherits="UIPanelButtonTemplate">
+                        <Size x="120" y="24"/>
+                        <Anchors>
+                            <Anchor point="RIGHT" x="-8" y="0"/>
+                        </Anchors>
+                        <Scripts>
+                            <OnClick function="AvatarSettingsPreviewLockButton_OnClick"/>
+                        </Scripts>
+                    </Button>
+                </Frames>
+            </Frame>
+        </Frames>
+    </Frame>
+
+</Ui>
