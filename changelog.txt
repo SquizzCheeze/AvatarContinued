@@ -1,7 +1,7 @@
 Avatar Continued Changelog
 ==========================
 
-V1.7
+V1.7 (2026-09-14)
 
 New:
 
