@@ -1,7 +1,7 @@
 local addon_name, addon_shared = ...
 
 local LibStub = LibStub;
-local Addon = LibStub("AceAddon-3.0"):NewAddon(addon_name, "AceEvent-3.0", "AceHook-3.0");
+local Addon = LibStub("AceAddon-3.0"):NewAddon(addon_name, "AceEvent-3.0");
 _G[addon_name] = Addon;
 
 local GENDER_ID = UnitSex("player")-2;
