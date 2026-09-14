@@ -1,38 +1,10 @@
 Avatar Continued Changelog
 ==========================
 
-V1.7 (2026-09-14)
-
-New:
-
-- A short note about what changed now appears once after each update, and a
-  welcome note on first install. Type /avatar notes to see it again.
+V1.8 (2026-09-14)
 
 Fixed:
 
-- Clicking either light colour swatch in the settings window threw an error.
-
-- "Hide Avatar in Combat" did nothing. The avatar now hides when combat starts
-  and comes back when it ends.
-
-- Creating a profile errored when you clicked Create (pressing Enter worked).
-
-- "Delete Current" never deleted the profile, and its confirmation popup
-  errored as it opened.
-
-- Visiting Avatar Continued under Options > AddOns broke the settings window:
-  afterwards, /avatar opened a window that was nowhere to be seen. That entry
-  is now a small page with a button that opens the real window.
-
-- Opening the settings window could quietly change your saved settings,
-  rounding them to the nearest slider step. Avatar facing was the one most
-  likely to shift.
-
-- "/avatar profile Name" created a new, lower-cased profile instead of
-  switching to the one you named.
-
-- "/avatar equip" errored when given a plain item ID.
-
-Changed:
-
-- The settings window's dropdowns now use the game's current dropdown menus.
+- When Avatar Continued updated at the same login as SquizzFrames or
+  Squizzumables, their update notes drew on top of each other and flickered.
+  They now appear one after another: close one and the next opens.

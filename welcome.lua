@@ -24,6 +24,9 @@ if not Addon then return; end
 -- ADD AN ENTRY AS PART OF RELEASING -- see CLAUDE.md's Releasing section.
 -- A version with no entry still shows the update note, just without bullets.
 local RELEASE_NOTES = {
+    ["1.8"] = {
+        "When Avatar Continued updates at the same time as SquizzFrames or Squizzumables, their update notes now appear one after another instead of on top of each other.",
+    },
     ["1.7"] = {
         "This window is new: a short note about what changed, once per update. Type /avatar notes to see it again.",
         "Hide Avatar in Combat now actually hides it.",
@@ -42,6 +45,46 @@ end
 local ACCENT = { 0.78, 0.65, 0.30 };
 
 local frame;
+
+-- ONE UPDATE NOTE AT A TIME, across all of the Squizz addons.
+--
+-- SquizzFrames, Squizzumables and Avatar Continued each carry a copy of this
+-- window, and the copies were identical: same size, same spot, same DIALOG
+-- strata, same frame level. Frames that tie on strata and level have no defined
+-- draw order, so when two of them updated at the same login their notes drew
+-- through each other and flickered as the order flipped.
+--
+-- The queue lives in _G and is created by whichever addon loads first. Notes
+-- that come due at login wait behind one already on screen and appear when it
+-- closes; notes opened by hand (/avatar notes) show straight away, on top.
+--
+-- KEEP THIS BLOCK IDENTICAL IN ALL THREE ADDONS. They share the table, so its
+-- shape is an interface between them.
+local NotesQueue = _G.SquizzNotesQueue or { pending = {} };
+_G.SquizzNotesQueue = NotesQueue;
+
+local function PresentNotes(f, queued)
+    local active = NotesQueue.active;
+    if queued and active and active ~= f and active:IsShown() then
+        for _, waiting in ipairs(NotesQueue.pending) do
+            if waiting == f then return; end
+        end
+        table.insert(NotesQueue.pending, f);
+        return;
+    end
+    NotesQueue.active = f;
+    f:Show();
+    f:Raise();
+end
+
+local function OnNotesHidden(f)
+    if NotesQueue.active ~= f then return; end
+    NotesQueue.active = nil;
+    local nextFrame = table.remove(NotesQueue.pending, 1);
+    if nextFrame then
+        PresentNotes(nextFrame, false);
+    end
+end
 
 -- Narrower than the frame by the scroll bar's gutter, so a long note is not
 -- drawn underneath it.
@@ -70,6 +113,11 @@ local function BuildFrame()
 
     -- Escape closes it, like any other dialog.
     table.insert(UISpecialFrames, "AvatarContinuedWelcome");
+
+    -- Clicking a notes window brings it in front of any other one, and closing
+    -- it lets the next queued note through (see NotesQueue).
+    frame:SetToplevel(true);
+    frame:HookScript("OnHide", OnNotesHidden);
 
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge");
     title:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -16);
@@ -124,7 +172,9 @@ local function BuildFrame()
     return frame;
 end
 
-local function Show(titleText, bodyText)
+-- queued: true for the automatic login note, which waits its turn behind
+-- another addon's note; false/nil when opened by hand.
+local function Show(titleText, bodyText, queued)
     local f = BuildFrame();
     f.title:SetText(titleText);
     f.body:SetText(bodyText);
@@ -139,22 +189,22 @@ local function Show(titleText, bodyText)
     -- /avatar notes would otherwise restore wherever the last read was left.
     f.scroll:SetVerticalScroll(0);
 
-    f:Show();
+    PresentNotes(f, queued);
 end
 
 -- The greeting for someone who has never run the addon.
-local function ShowFirstRun()
+local function ShowFirstRun(queued)
     Show("Welcome to Avatar Continued",
         "Avatar Continued puts your character on screen as part of your UI.\n\n"
      .. "To place it, type /avatar unlock. Drag with the left mouse button to move it, "
      .. "drag with the right to resize it, and use the mouse wheel to turn it. "
      .. "Type /avatar lock when you are done.\n\n"
      .. "Everything else is under /avatar: lighting, pose, which parts of your gear show, "
-     .. "and your saved Wardrobe outfits, with a live preview as you change them.");
+     .. "and your saved Wardrobe outfits, with a live preview as you change them.", queued);
 end
 
 -- The note after updating.
-local function ShowUpdated(version)
+local function ShowUpdated(version, queued)
     local notes = RELEASE_NOTES[version];
     local body = "Avatar Continued has been updated to " .. version .. ".\n\n";
     if notes then
@@ -165,7 +215,7 @@ local function ShowUpdated(version)
     else
         body = body .. "See changelog.txt in the addon folder for what changed.";
     end
-    Show("Avatar Continued updated", body);
+    Show("Avatar Continued updated", body, queued);
 end
 
 -- Decide which, if either, to show.
@@ -186,12 +236,12 @@ local function CheckVersion()
         -- or later. The original Avatar addon used the same AvatarDB, so its
         -- players correctly read as upgraders.
         if Addon.hadSavedVariables then
-            ShowUpdated(version);
+            ShowUpdated(version, true);
         else
-            ShowFirstRun();
+            ShowFirstRun(true);
         end
     elseif seen ~= version then
-        ShowUpdated(version);
+        ShowUpdated(version, true);
     end
 
     AvatarDB.lastSeenVersion = version;
