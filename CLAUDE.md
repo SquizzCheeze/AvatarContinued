@@ -21,6 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `settings.lua` | The settings window (custom three-column dialog with a live preview model) and the Options > AddOns launcher page |
 | `settings.xml` | Templates for the settings window: category buttons, preview frame (inherits `BackdropTemplate`) |
 | `AvatarFrame.xml` | `AvatarModelFrame` (DressUpModel) and `AvatarInstructionsFrame` (unlock overlay) |
+| `welcome.lua` | First-run greeting and the once-per-update release notes (`RELEASE_NOTES`, `/avatar notes`). Ported from SquizzFrames/Squizzumables. It snapshots `AvatarDB ~= nil` at FILE LOAD to tell a new install from an upgrade (AceDB creates `AvatarDB` later, so any later check sees every install as existing), and stores `lastSeenVersion` on the `AvatarDB` root, outside profiles |
 
 ## How the model is dressed (read before touching appearance code)
 
@@ -64,8 +65,9 @@ Tagging is what publishes; pushes to `main` never reach CurseForge. `.github/wor
 To ship:
 
 1. Bump `## Version:` in `Avatar.toc` if needed; make sure `changelog.txt` covers exactly this version.
-2. Dry run first: Actions > "Package and release" > Run workflow with `dry_run` ticked. Nothing uploads; the zip comes back as an artifact.
-3. `git tag -a v1.0.0 -m "Avatar Continued 1.0.0"` and `git push origin v1.0.0`.
+2. Add a `RELEASE_NOTES["<version>"]` entry in `welcome.lua`: a few player-facing highlights, NOT a copy of the changelog. A missing entry is not fatal (the update note still appears, without bullets), which is exactly why it is easy to forget. It is keyed by the TOC version string, so adding it early is harmless.
+3. Dry run first: Actions > "Package and release" > Run workflow with `dry_run` ticked. Nothing uploads; the zip comes back as an artifact.
+4. `git tag -a v1.0.0 -m "Avatar Continued 1.0.0"` and `git push origin v1.0.0`.
 
 Three failure modes a green checkmark will not show (all hit on the sibling addons first; Squizzumables' CLAUDE.md has the original writeups):
 
@@ -84,4 +86,5 @@ Tags list newest-first because the repo sets `git config tag.sort -creatordate` 
 | `/avatar profile <name>` | Switch profile (case-sensitive) |
 | `/avatar equip <link\|itemID\|itemID:bonusID>` | Try an item on the avatar |
 | `/avatar unlock`, `/avatar lock` | Unlock to move/resize/rotate with the mouse |
+| `/avatar notes` (or `changelog`) | Re-open the current release notes |
 | `/avatar help` | Usage |

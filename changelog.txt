@@ -8,6 +8,11 @@ permission. It shows your character model on screen as part of your UI: move,
 scale and rotate it, change its lighting and pose, and preview any saved
 Wardrobe outfit on it.
 
+New:
+
+- A short note about what changed now appears once after each update, and a
+  welcome note on first install. Type /avatar notes to see it again.
+
 Fixed:
 
 - Clicking either light colour swatch in the settings window threw an error.

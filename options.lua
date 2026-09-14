@@ -266,6 +266,9 @@ function Addon:ConsoleHandler(rawcommand)
 			Print("Using profile " .. rest .. ".");
 		end
 
+	elseif command == "notes" or command == "changelog" then
+		Addon:ShowReleaseNotes();
+
 	elseif command == "unlock" then
 		Addon:UnlockFrame();
 		Print("Unlocked");
@@ -281,6 +284,7 @@ function Addon:ConsoleHandler(rawcommand)
 		DEFAULT_CHAT_FRAME:AddMessage("|cff81e6fc/avatar|r |cfff8e250toggle [weapon/armor/tabard]|r - Show/hide avatar weapon, armor or tabard");
 		DEFAULT_CHAT_FRAME:AddMessage("|cff81e6fc/avatar|r |cfff8e250profile [profile name]|r - Change current profile (" .. Addon.db:GetCurrentProfile() .. ")");
 		DEFAULT_CHAT_FRAME:AddMessage("|cff81e6fc/avatar|r |cfff8e250equip [item link or item ID]|r - Try an item on the avatar");
+		DEFAULT_CHAT_FRAME:AddMessage("|cff81e6fc/avatar|r |cfff8e250notes|r - Show what changed in this version");
 		DEFAULT_CHAT_FRAME:AddMessage("|cff81e6fc/avatar|r |cfff8e250lock|r - Lock avatar");
 		DEFAULT_CHAT_FRAME:AddMessage("|cff81e6fc/avatar|r |cfff8e250unlock|r - Unlock avatar allowing positioning, scaling and rotating with the mouse");
 
