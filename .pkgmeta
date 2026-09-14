@@ -1,0 +1,36 @@
+# Packaging metadata for BigWigsMods/packager, used by the release workflow in
+# .github/workflows/release.yml.
+#
+# The addon folder must be named Avatar when installed -- this is what names the
+# folder inside the zip. It is also the AceAddon name (core.lua takes it from
+# the TOC's `...`), so renaming it would orphan every existing install's
+# AvatarDB profile.
+package-as: Avatar
+
+# Hand-written release notes, uploaded verbatim instead of letting the packager
+# synthesise a changelog from commit subjects.
+#
+# "Verbatim" means the WHOLE file, so changelog.txt holds ONLY the version being
+# built -- everything older moves to CHANGELOG-ARCHIVE.txt, which is in the
+# ignore list below. Leaving the history in place makes every CurseForge release
+# repost the entire backlog as that version's release notes.
+manual-changelog:
+  filename: changelog.txt
+  markup-type: text
+
+# Development-only files, kept out of the zip so they never ship to users.
+# changelog.txt is deliberately NOT here: it is worth having offline.
+ignore:
+  - .github
+  - .claude
+  - .vscode
+  - .gitignore
+  - .gitattributes
+  - .pkgmeta
+  - CLAUDE.md
+  - README.md
+  - CHANGELOG-ARCHIVE.txt
+
+# All libraries are vendored in libs/, so there is nothing to check out and no
+# separate no-libraries package to build.
+enable-nolib-creation: no

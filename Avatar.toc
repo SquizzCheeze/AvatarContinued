@@ -3,6 +3,8 @@
 ## Notes: Show your character model as a part of your UI
 ## Author: SquizzCheeze
 ## Version: 1.0.0
+## X-Curse-Project-ID: 1533608
+## X-Flavor: Mainline
 ## OptionalDeps: Ace3
 ## SavedVariables: AvatarDB
 
