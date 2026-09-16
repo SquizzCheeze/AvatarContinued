@@ -1,10 +1,15 @@
 Avatar Continued Changelog
 ==========================
 
-V1.8 (2026-09-14)
+V1.9 (2026-09-16)
 
-Fixed:
+Added:
 
-- When Avatar Continued updated at the same login as SquizzFrames or
-  Squizzumables, their update notes drew on top of each other and flickered.
-  They now appear one after another: close one and the next opens.
+- "/rl" as a shortcut for reloading your interface, the same as /reload. It is
+  only claimed if no other addon already provides it, so an existing one keeps
+  working.
+
+Changed:
+
+- Declares support for patch 12.1.5 alongside 12.1.0, so it loads on the
+  12.1.5 test client without being marked out of date.

@@ -11,6 +11,15 @@ Avatar Continued 1.0 to 1.6 shipped before this repository existed and have no
 notes here.
 
 
+V1.8 (2026-09-14)
+
+Fixed:
+
+- When Avatar Continued updated at the same login as SquizzFrames or
+  Squizzumables, their update notes drew on top of each other and flickered.
+  They now appear one after another: close one and the next opens.
+
+
 V1.7 (2026-09-14)
 
 New:
