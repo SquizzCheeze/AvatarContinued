@@ -19,7 +19,8 @@ manual-changelog:
   markup-type: text
 
 # Development-only files, kept out of the zip so they never ship to users.
-# changelog.txt is deliberately NOT here: it is worth having offline.
+# LICENSE and changelog.txt are deliberately NOT here: the MIT licence has to
+# travel with the code, and the changelog is worth having offline.
 ignore:
   - .github
   - .claude

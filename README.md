@@ -8,8 +8,15 @@ properly? Avatar puts your character on screen, where it can be moved, scaled
 and rotated to fit any UI, relit to taste, posed, and dressed in any saved
 Wardrobe outfit.
 
-Avatar Continued revives the original Avatar addon (last updated for Battle for
-Azeroth) for World of Warcraft 12.1, with the original author's permission.
+Avatar Continued revives the original Avatar addon by Sonaza (last updated for
+Battle for Azeroth) for World of Warcraft 12.1, with the original author's
+permission.
+
+## License
+
+MIT, covering both Sonaza's original addon and the Avatar Continued changes --
+see [LICENSE](LICENSE). The bundled Ace3 libraries in `libs/` keep their own
+licences.
 
 ## Usage
 
