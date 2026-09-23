@@ -207,7 +207,14 @@ end
 
 local _modelLoadedBusy = false;
 function AvatarModelFrame_OnModelLoaded(self)
-	if _modelLoadedBusy then return; end
+	if _modelLoadedBusy then
+		-- A nested load is still a load: re-apply alpha before bailing, or a
+		-- rebuild during the refresh below can come back at full opacity.
+		if Addon and Addon.db and Addon.db.profile then
+			self:SetModelAlpha(Addon.db.profile.alpha);
+		end
+		return;
+	end
 	if Addon and Addon.db and Addon.db.profile then
 		self:SetModelAlpha(Addon.db.profile.alpha);
 		-- Re-dressing the model during the refresh below fires OnModelLoaded
@@ -246,6 +253,32 @@ function AvatarModelFrame_Lock(self)
 	Addon:LockFrame();
 end
 
+-- Model alpha does not always survive the model being rebuilt. Every path
+-- that changes the model re-applies it straight afterwards, but a piece that
+-- finishes loading LATER (an item appearance streaming in, a reload the
+-- client does on its own) can put the model back to full opacity with no
+-- OnModelLoaded to answer it. Reported 2026-09-23 as "sometimes the
+-- transparency is ignored", with no pinnable trigger -- which is what an
+-- async load looks like from the outside.
+--
+-- So once a second, while shown, re-assert the configured alpha. It is
+-- unconditional rather than a GetModelAlpha comparison because the getter
+-- may keep reporting the stored value after the rebuild, and the comparison
+-- would then never fire. Skipped at full opacity, where there is nothing to
+-- lose. OnUpdate only runs while the frame is shown.
+local ALPHA_WATCH_INTERVAL = 1.0;
+local alphaWatchElapsed = 0;
+local function AlphaWatch(self, elapsed)
+	alphaWatchElapsed = alphaWatchElapsed + elapsed;
+	if alphaWatchElapsed < ALPHA_WATCH_INTERVAL then return; end
+	alphaWatchElapsed = 0;
+	local p = Addon and Addon.db and Addon.db.profile;
+	local a = p and p.alpha;
+	if a and a < 1 then
+		self:SetModelAlpha(a);
+	end
+end
+
 function AvatarModelFrame_OnLoad(self)
 	local screen_width, screen_height = GetCurrentResolutionSize();
 	self:SetResizeBounds(screen_height * 0.05, screen_height * 0.05, screen_height * 2.0, screen_height * 2.0);
@@ -276,6 +309,8 @@ function AvatarModelFrame_OnLoad(self)
 	if self.SetKeepModelOnHide then
 		self:SetKeepModelOnHide(true);
 	end
+
+	self:HookScript("OnUpdate", AlphaWatch);
 end
 
 function AvatarModelFrame_OnMouseWheel(self, delta)

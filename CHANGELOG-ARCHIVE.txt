@@ -10,6 +10,18 @@ deleted. This file is in the .pkgmeta ignore list, so it never ships.
 Avatar Continued 1.0 to 1.6 shipped before this repository existed and have no
 notes here.
 
+V1.9 (2026-09-16)
+
+Added:
+
+- "/rl" as a shortcut for reloading your interface, the same as /reload. It is
+  only claimed if no other addon already provides it, so an existing one keeps
+  working.
+
+Changed:
+
+- Declares support for patch 12.1.5 alongside 12.1.0, so it loads on the
+  12.1.5 test client without being marked out of date.
 
 V1.8 (2026-09-14)
 
