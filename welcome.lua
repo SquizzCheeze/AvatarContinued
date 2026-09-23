@@ -24,6 +24,9 @@ if not Addon then return; end
 -- ADD AN ENTRY AS PART OF RELEASING -- see CLAUDE.md's Releasing section.
 -- A version with no entry still shows the update note, just without bullets.
 local RELEASE_NOTES = {
+    ["1.10"] = {
+        "Fixed the avatar sometimes ignoring your Avatar Opacity and showing at full opacity.",
+    },
     ["1.9"] = {
         "/rl now reloads your interface, the same as /reload. It is only claimed if no other addon already provides it.",
         "Supports patch 12.1.5 as well as 12.1.0.",
