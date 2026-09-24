@@ -30,6 +30,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **`SetKeepModelOnHide(true)`** on both models: without it the client discards the model when UIParent hides (ElvUI's AFK screen) and reloads it through the geoset-corrupting path.
 - **Dressing a model fires `OnModelLoaded` synchronously.** `AvatarModelFrame_OnModelLoaded` has a `_modelLoadedBusy` guard, reset under pcall. The preview model's handler has NO guard, so it must never call anything that re-dresses (`RefreshEquipmentOnModel`). That would be an infinite loop, surfacing as a C stack overflow.
 - **`OnAnimFinished` restarts the animation on the next frame**, never inside the handler, for the same reason.
+- **Model alpha does not survive every rebuild.** Every path that changes the model re-applies `SetModelAlpha` straight afterwards, yet the avatar intermittently came back at full opacity with no pinnable trigger (V1.10): a piece that finishes loading later can reset it with no `OnModelLoaded` to answer. `AlphaWatch` (a 1s `OnUpdate` hooked in `AvatarModelFrame_OnLoad`) re-asserts the configured alpha while shown and below 1 — unconditionally, since `GetModelAlpha` may keep reporting the stored value after the reset. The nested `OnModelLoaded` also applies alpha before its re-entrancy bail. User-confirmed holding; if it ever recurs, the watch was a symptom fix, not the cause.
 
 ## 12.1 rules this addon has already hit
 
