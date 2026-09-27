@@ -12,11 +12,21 @@ Avatar Continued revives the original Avatar addon by Sonaza (last updated for
 Battle for Azeroth) for World of Warcraft 12.1, with the original author's
 permission.
 
-## License
+**[Download on CurseForge](https://www.curseforge.com/projects/1533608)**
 
-MIT, covering both Sonaza's original addon and the Avatar Continued changes --
-see [LICENSE](LICENSE). The bundled Ace3 libraries in `libs/` keep their own
-licences.
+## Features
+
+- **Place it anywhere** — move, resize, rotate and zoom your character, with
+  anchor, layer and opacity settings to fit any UI
+- **Lighting** — ambient and direct light colour and intensity, plus the
+  light's direction
+- **Poses** — idle, walk, talk, dance, attack or spell cast
+- **Outfits** — dress your avatar in any saved Wardrobe outfit, or try on any
+  item with `/avatar equip`
+- **Gear** — show or hide your weapons, armor, shirt, tabard and helm
+- **Hide in combat**, if you'd rather it got out of the way
+- **Profiles** per character or shared across all of them, with a live preview
+  while you set it up
 
 ## Usage
 
@@ -39,5 +49,25 @@ AceDB, AceEvent) are bundled in `libs/`.
 
 ## Releases
 
-Published to [CurseForge](https://www.curseforge.com/wow/addons) (project
+Published to [CurseForge](https://www.curseforge.com/projects/1533608) (project
 1533608) from tagged versions of this repository.
+
+## Support
+
+If you enjoy using Avatar Continued, consider supporting development on
+[Ko-fi](https://ko-fi.com/squizz) ❤️
+
+## More addons by Squizz
+
+- **[SquizzFrames](https://www.curseforge.com/projects/1649203)** — party, raid, pet and unit frames with a full indicator system, click-casting and a tank tracker
+- **[Squizzumables](https://www.curseforge.com/projects/1483099)** — one-click reminders for food, flasks, oils and class buffs, plus raid tools and a restyled Cooldown Manager
+- **[Squizzcap](https://www.curseforge.com/projects/1713974)** — what killed you, how hard it hit and how fast you went down, with every death of a key saved to look back on
+- **[SquizzTalents](https://www.curseforge.com/projects/1705647)** — all your talent builds in one list, with a reminder when your build doesn't match the content
+- **[DPS Report](https://www.curseforge.com/projects/1504877)** — a lightweight damage meter with spell breakdowns and an end-of-key MVP summary
+- **[KSLBestDungeon](https://www.curseforge.com/projects/1599575)** — ranks Mythic+ dungeons by how many of your KeystoneLoot favorites drop there
+
+## License
+
+MIT, covering both Sonaza's original addon and the Avatar Continued changes --
+see [LICENSE](LICENSE). The bundled Ace3 libraries in `libs/` keep their own
+licences.
