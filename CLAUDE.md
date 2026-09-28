@@ -45,7 +45,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development
 
-No build, lint or test tooling ships with the addon. Edit in place, `/reload` in game (log out for TOC/XML changes). The VS Code Lua language server can do a syntax/error pass from the command line:
+No build, lint or test tooling ships with the addon. Edit in place, `/reload` in game -- enough for everything on retail, TOC/XML changes and new files included (never tell the user to relog). The VS Code Lua language server can do a syntax/error pass from the command line:
 
 ```sh
 "$USERPROFILE/.vscode/extensions/sumneko.lua-3.19.1-win32-x64/server/bin/lua-language-server.exe" --check="<addon folder>" --checklevel=Error
