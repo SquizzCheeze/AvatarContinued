@@ -20,9 +20,15 @@ permission.
   anchor, layer and opacity settings to fit any UI
 - **Lighting** — ambient and direct light colour and intensity, plus the
   light's direction
-- **Poses** — idle, walk, talk, dance, attack or spell cast
+- **Poses** — idle, walk, talk, dance, attack, spell cast, and emotes like
+  wave, cheer, laugh, salute, sit, kneel and lie down
+- **Reactions** — your avatar dances when you finish a key or earn an
+  achievement, casts when you level up and falls down when you die (getting
+  back up once you're alive). Each can be changed or turned off
 - **Outfits** — dress your avatar in any saved Wardrobe outfit, or try on any
   item with `/avatar equip`
+- **An outfit per specialization** — set each spec's outfit, with a preview,
+  without switching spec; it goes on when you switch
 - **Gear** — show or hide your weapons, armor, shirt, tabard and helm
 - **Hide in combat**, if you'd rather it got out of the way
 - **Profiles** per character or shared across all of them, with a live preview
@@ -38,6 +44,8 @@ permission.
 | `/avatar unlock` / `/avatar lock` | Unlock to move (left drag), resize (right drag) and rotate (mouse wheel) |
 | `/avatar profile <name>` | Switch profile |
 | `/avatar equip <item link or item ID>` | Try an item on the avatar |
+| `/avatar anim <id>` | Play any animation by its ID |
+| `/avatar notes` | What's new in this version |
 | `/avatar help` | List the commands in game |
 
 Settings are also reachable from Options > AddOns > Avatar Continued.
