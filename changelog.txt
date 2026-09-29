@@ -13,8 +13,9 @@ Added:
   any other animation.
 - A different outfit for each specialization. Tick the option under Outfits,
   choose a spec from the icons that appear, then pick its outfit - no need
-  to switch spec to set each one up. Switching spec puts that spec's outfit
-  on.
+  to switch spec to set each one up. The preview in the settings shows the
+  chosen spec's outfit while your avatar keeps what it is wearing, and
+  switching spec puts that spec's outfit on.
 - Many more animations for the pose and for reactions: Wave, Cheer, Laugh,
   Applaud, Bow, Salute, Flex, Point, Roar, Shout, Cry, Shy, Kiss, Beg, Rude,
   Chicken, Sit, Kneel and Lie Down.

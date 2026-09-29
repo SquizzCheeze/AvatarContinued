@@ -1252,6 +1252,19 @@ function Addon:RefreshOutfitsList()
     end
     if self.outfitSpecRow then self.outfitSpecRow:Refresh(); end
 
+    -- The preview model wears the spec being chosen for (Addon:ModelOutfit);
+    -- the avatar on screen keeps yours. A spec with nothing chosen (nil)
+    -- would keep the current outfit on switching, so it previews that.
+    local pm = self.previewModel;
+    if pm then
+        local override = nil;
+        if editingOther then override = charData.outfitBySpec[editSpec]; end
+        if pm._avatarOutfitOverride ~= override then
+            pm._avatarOutfitOverride = override;
+            self:RefreshEquipmentOnModel(pm);
+        end
+    end
+
     local function CreateOutfitRow(label, icon, customSetID)
         local row = CreateFrame("Button", nil, content);
         row:SetSize(354, OUTFIT_ROW_HEIGHT - 2);

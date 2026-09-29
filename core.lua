@@ -711,6 +711,17 @@ function Addon:IsOutfitPreviewActive()
 	return (outfitPreview and outfitPreview.enabled and outfitPreview.customSetID) and true or false;
 end
 
+-- The outfit a given model should wear: its own override when it has one
+-- (model._avatarOutfitOverride: a customSetID, or false for real gear -- the
+-- settings preview uses it to show another spec's outfit), else the global
+-- choice. nil means real gear.
+function Addon:ModelOutfit(model)
+	local override = model and model._avatarOutfitOverride;
+	if override ~= nil then return override or nil; end
+	if Addon:IsOutfitPreviewActive() then return Addon.db.char.outfitPreview.customSetID; end
+	return nil;
+end
+
 -- Deep-copies an ItemTransmogInfo list by value.
 --
 -- GetItemTransmogInfoList() hands back the model's own live objects, not a
@@ -758,7 +769,7 @@ function Addon:CaptureBaseline(model)
 	-- SetUnit() (flagged by SetupModel), where the model still shows real gear
 	-- -- without that, a profile with an outfit already enabled at login would
 	-- never get a baseline and could never return to "Show Equipped Gear".
-	if Addon:IsOutfitPreviewActive() and not model._avatarBaselinePending then
+	if Addon:ModelOutfit(model) and not model._avatarBaselinePending then
 		return;
 	end
 
@@ -774,9 +785,9 @@ end
 
 -- The ItemTransmogInfo list describing what SHOULD be shown right now: the
 -- active outfit if one is selected, otherwise the player's real gear.
-function Addon:GetAppearanceSourceList()
-	if Addon:IsOutfitPreviewActive() then
-		local customSetID = Addon.db.char.outfitPreview.customSetID;
+function Addon:GetAppearanceSourceList(model)
+	local customSetID = Addon:ModelOutfit(model);
+	if customSetID then
 		local ok, list = pcall(C_TransmogCollection.GetCustomSetItemTransmogInfoList, customSetID);
 		if ok and list then return list; end
 		-- Outfit data not cached yet (common right after login). Fall through
@@ -812,7 +823,7 @@ function Addon:ApplyAppearance(model)
 		if not Addon._baselineTransmogInfo then return; end
 	end
 
-	local source = Addon:GetAppearanceSourceList();
+	local source = Addon:GetAppearanceSourceList(model);
 	if not source then return; end
 
 	for slotID in pairs(SLOT_SHOW_FLAGS) do
