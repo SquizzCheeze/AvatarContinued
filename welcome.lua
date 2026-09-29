@@ -24,6 +24,10 @@ if not Addon then return; end
 -- ADD AN ENTRY AS PART OF RELEASING -- see CLAUDE.md's Releasing section.
 -- A version with no entry still shows the update note, just without bullets.
 local RELEASE_NOTES = {
+    ["1.11"] = {
+        "Your avatar reacts to what happens: it dances when you finish a key or earn an achievement and falls down when you die. Change or turn off each reaction under Animation.",
+        "A different outfit for each specialization: tick the option under Outfits and pick an outfit in each spec.",
+    },
     ["1.10"] = {
         "Fixed the avatar sometimes ignoring your Avatar Opacity and showing at full opacity.",
     },

@@ -49,6 +49,12 @@ local ANIMATION_OPTIONS = {
     { text = "Dance",      value = 69 },
 };
 
+-- Reactions choose from the poses above plus Death (1, lying down until you
+-- are alive again) and None. Only verified ids -- /avatar anim tries others.
+local REACTION_OPTIONS = { { text = "None", value = -1 } };
+for _, o in ipairs(ANIMATION_OPTIONS) do REACTION_OPTIONS[#REACTION_OPTIONS + 1] = o; end
+REACTION_OPTIONS[#REACTION_OPTIONS + 1] = { text = "Death", value = 1 };
+
 -- ============================================================================
 -- Setting Variable Registry
 -- Maps setting variables to their DB path, type, and default
@@ -84,6 +90,12 @@ local SETTING_META = {
     avatar_hide_combat   = { dbPath = "hideInCombat",  type = "Boolean", default = false },
     -- ANIMATION
     avatar_animation     = { dbPath = "animation",     type = "Number",  default = 0 },
+    -- REACTIONS (Addon:React in core.lua)
+    avatar_react_enabled     = { dbPath = "reactions.enabled",     type = "Boolean", default = true },
+    avatar_react_keystone    = { dbPath = "reactions.keystone",    type = "Number",  default = 69 },
+    avatar_react_achievement = { dbPath = "reactions.achievement", type = "Number",  default = 69 },
+    avatar_react_levelup     = { dbPath = "reactions.levelUp",     type = "Number",  default = 48 },
+    avatar_react_death       = { dbPath = "reactions.death",       type = "Number",  default = 1 },
     -- LIGHTING
     avatar_light_yaw     = { dbPath = "light.dya",     type = "Number",  default = 0 },
     avatar_light_pitch   = { dbPath = "light.dza",     type = "Number",  default = -10 },
@@ -1239,6 +1251,12 @@ function Addon:RefreshOutfitsList()
             else
                 charData.outfitPreview.enabled = false;
             end
+            -- Outfit per spec: this choice is now the current spec's
+            -- (false = equipped gear), put back on every switch to it.
+            if charData.outfitPerSpec then
+                local spec = Addon:CurrentSpecID();
+                if spec then charData.outfitBySpec[spec] = customSetID or false; end
+            end
 
             -- Selecting an outfit and going back to real gear are now the
             -- same operation with a different source list -- see
@@ -1293,6 +1311,36 @@ function Addon:BuildOutfitsSettings(parent, sy)
     hint:SetJustifyH("LEFT");
     hint:SetText("Preview a saved Wardrobe outfit on your Avatar instead of your currently equipped gear. The preview stays applied through gear/transmog changes until you pick \"Show Equipped Gear\" again.");
     sy = sy - 46;
+
+    -- Outfit per specialization (Addon:ApplySpecOutfit). Per character, so
+    -- not a SETTING_META entry (those are profile paths).
+    local perSpec = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate");
+    perSpec:SetSize(28, 28);
+    perSpec:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, sy);
+    perSpec:SetChecked(self.db.char.outfitPerSpec and true or false);
+    local perSpecText = perSpec:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall");
+    perSpecText:SetPoint("LEFT", perSpec, "RIGHT", 2, 0);
+    perSpecText:SetText("A different outfit for each specialization");
+    perSpec:SetScript("OnClick", function(cb)
+        local char = Addon.db.char;
+        char.outfitPerSpec = cb:GetChecked() and true or false;
+        -- Turning it on remembers what is showing now for this spec.
+        if char.outfitPerSpec then
+            local spec = Addon:CurrentSpecID();
+            if spec then
+                local p = char.outfitPreview;
+                char.outfitBySpec[spec] = (p.enabled and p.customSetID) or false;
+            end
+        end
+    end);
+    perSpec:SetScript("OnEnter", function(cb)
+        GameTooltip_SetDefaultAnchor(GameTooltip, cb);
+        GameTooltip:SetText("Outfit per specialization", 1, 1, 1);
+        GameTooltip:AddLine("Pick an outfit while in each spec; switching spec puts that spec's outfit back on.", nil, nil, nil, true);
+        GameTooltip:Show();
+    end);
+    perSpec:SetScript("OnLeave", function() GameTooltip:Hide(); end);
+    sy = sy - 32;
 
     CreateDivider(parent, sy);
     sy = sy - 12;
@@ -1414,6 +1462,26 @@ function Addon:BuildAnimationSettings(parent, sy)
         "Choose which animation the avatar should play", ANIMATION_OPTIONS);
     animDD:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, sy);
     sy = sy - 52;
+
+    CreateDivider(parent, sy);
+    sy = sy - 16;
+
+    -- Reactions: a one-off animation on an event, then back to the pose above.
+    local reactCB = CreateAVCheckbox(parent, "avatar_react_enabled", "React to events",
+        "Play an animation when something happens (a finished key, an achievement, a level, your death), then go back to your pose. /avatar anim <id> tries any animation.");
+    reactCB:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, sy);
+    sy = sy - 34;
+
+    for _, r in ipairs({
+        { var = "avatar_react_keystone",    label = "Mythic+ key finished" },
+        { var = "avatar_react_achievement", label = "Achievement earned" },
+        { var = "avatar_react_levelup",     label = "Level up" },
+        { var = "avatar_react_death",       label = "You died" },
+    }) do
+        local dd = CreateAVDropdown(parent, r.var, r.label, "The animation to play for this.", REACTION_OPTIONS);
+        dd:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, sy);
+        sy = sy - 52;
+    end
 
     CreateDivider(parent, sy);
     sy = sy - 16;

@@ -266,6 +266,21 @@ function Addon:ConsoleHandler(rawcommand)
 			Print("Using profile " .. rest .. ".");
 		end
 
+	elseif command == "anim" then
+		-- Try any animation id once, then back to the chosen pose -- for
+		-- finding emotes to use as reactions.
+		local id = tonumber(arg1);
+		if not id then
+			Print("Usage: /avatar anim <animation id>, e.g. /avatar anim 69");
+			return;
+		end
+		if not AvatarModelFrame:IsShown() then
+			Print("The avatar is hidden; show it first (/avatar toggle).");
+			return;
+		end
+		Addon:PlayReaction(id);
+		Print("Playing animation " .. id .. ".");
+
 	elseif command == "notes" or command == "changelog" then
 		Addon:ShowReleaseNotes();
 
@@ -284,6 +299,7 @@ function Addon:ConsoleHandler(rawcommand)
 		DEFAULT_CHAT_FRAME:AddMessage("|cff81e6fc/avatar|r |cfff8e250toggle [weapon/armor/tabard]|r - Show/hide avatar weapon, armor or tabard");
 		DEFAULT_CHAT_FRAME:AddMessage("|cff81e6fc/avatar|r |cfff8e250profile [profile name]|r - Change current profile (" .. Addon.db:GetCurrentProfile() .. ")");
 		DEFAULT_CHAT_FRAME:AddMessage("|cff81e6fc/avatar|r |cfff8e250equip [item link or item ID]|r - Try an item on the avatar");
+		DEFAULT_CHAT_FRAME:AddMessage("|cff81e6fc/avatar|r |cfff8e250anim [id]|r - Play an animation once (to find ones you like)");
 		DEFAULT_CHAT_FRAME:AddMessage("|cff81e6fc/avatar|r |cfff8e250notes|r - Show what changed in this version");
 		DEFAULT_CHAT_FRAME:AddMessage("|cff81e6fc/avatar|r |cfff8e250lock|r - Lock avatar");
 		DEFAULT_CHAT_FRAME:AddMessage("|cff81e6fc/avatar|r |cfff8e250unlock|r - Unlock avatar allowing positioning, scaling and rotating with the mouse");

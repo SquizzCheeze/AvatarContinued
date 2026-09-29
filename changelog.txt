@@ -1,11 +1,16 @@
 Avatar Continued Changelog
 ==========================
 
-V1.10 (2026-09-23)
+V1.11
 
-Fixed:
+Added:
 
-- The avatar sometimes ignored your Avatar Opacity and showed at full
-  opacity, until something else refreshed it. The model can quietly reset its
-  transparency when part of it finishes loading, so the opacity is now
-  re-applied within a second whenever that happens.
+- Reactions: your avatar can react to what happens. It dances when you
+  finish a Mythic+ key or earn an achievement, plays a spell cast when you
+  level up, and falls down when you die (getting back up once you are alive
+  again), then returns to your chosen pose. Each can be changed or turned
+  off under Animation in the settings, and /avatar anim <id> lets you try
+  any other animation.
+- A different outfit for each specialization. Tick the option under Outfits,
+  then pick an outfit while in each spec; switching spec puts that spec's
+  outfit back on.

@@ -80,6 +80,17 @@ function Addon:OnInitialize()
 			},
 			hideInCombat = false,
 			animation = 0,
+			-- Reactions (Addon:PlayReaction): an animation played on an event,
+			-- then back to `animation`. -1 = no reaction for that event. IDs
+			-- are the verified ones from the pose menu, plus 1 = Death (held
+			-- as 6 = Dead until you are alive again).
+			reactions = {
+				enabled = true,
+				keystone = 69,     -- Dance, on finishing a Mythic+ key
+				achievement = 69,  -- Dance
+				levelUp = 48,      -- Spell Cast
+				death = 1,         -- Death
+			},
 			cameraZoomByRace = {},
 
 			facing = 0.0,
@@ -139,6 +150,12 @@ function Addon:OnInitialize()
 				enabled = false,
 				customSetID = nil,
 			},
+			-- Outfit per specialization (Addon:ApplySpecOutfit): when on, the
+			-- outfit picked is remembered for the current spec and put back on
+			-- every switch to it. [specID] = customSetID, or false for equipped
+			-- gear.
+			outfitPerSpec = false,
+			outfitBySpec = {},
 		},
 	};
 
@@ -166,6 +183,17 @@ function Addon:OnEnable()
 	Addon:RegisterEvent("BARBER_SHOP_APPEARANCE_APPLIED", "RefreshAvatar");
 	Addon:RegisterEvent("TRANSMOGRIFY_SUCCESS", "RefreshAvatar");
 	Addon:RegisterEvent("TRANSMOG_COLLECTION_UPDATED");
+	-- Reactions (Addon:React) and the per-spec outfit.
+	Addon:RegisterEvent("CHALLENGE_MODE_COMPLETED", function() Addon:React("keystone"); end);
+	Addon:RegisterEvent("ACHIEVEMENT_EARNED", function() Addon:React("achievement"); end);
+	Addon:RegisterEvent("PLAYER_LEVEL_UP", function() Addon:React("levelUp"); end);
+	Addon:RegisterEvent("PLAYER_DEAD", function() Addon:React("death"); end);
+	-- PLAYER_ALIVE also fires on releasing (a ghost is still dead), hence the check.
+	Addon:RegisterEvent("PLAYER_ALIVE", function()
+		if not UnitIsDeadOrGhost("player") then Addon:EndDeathReaction(); end
+	end);
+	Addon:RegisterEvent("PLAYER_UNGHOST", function() Addon:EndDeathReaction(); end);
+	Addon:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED", function() Addon:ApplySpecOutfit(); end);
 	Addon:RegisterEvent("LOADING_SCREEN_DISABLED");
 
 	-- Player only, on a unit-filtered frame (events.lua) rather than AceEvent,
@@ -814,6 +842,13 @@ end
 local NATURALLY_LOOPING_ANIMS = { [0]=true, [4]=true, [69]=true };
 
 function Addon:ApplyAnimation()
+	-- Dead (a death reaction): every model refresh comes through here, and
+	-- must not stand the avatar back up until you are alive again.
+	if Addon._deadHold then
+		AvatarModelFrame:SetScript("OnAnimFinished", nil);
+		AvatarModelFrame:SetAnimation(6); -- Dead
+		return;
+	end
 	local anim = Addon.db.profile.animation or 0;
 	AvatarModelFrame:SetAnimation(anim);
 	if not NATURALLY_LOOPING_ANIMS[anim] then
@@ -835,6 +870,79 @@ function Addon:ApplyAnimation()
 	else
 		AvatarModelFrame:SetScript("OnAnimFinished", nil);
 	end
+end
+
+-- ============================================================================
+-- Reactions: a one-off animation on an event, then back to the chosen pose.
+-- ============================================================================
+local DEATH_ANIM, DEAD_ANIM = 1, 6;
+
+-- Play `anim` once and return to the configured pose. A negative id is "no
+-- reaction". Death is special: it ends lying down (Dead) and stays there until
+-- Addon:EndDeathReaction, since standing straight back up would look wrong.
+-- The OnAnimFinished restart is deferred a frame, as in ApplyAnimation.
+function Addon:PlayReaction(anim)
+	if not anim or anim < 0 then return; end
+	if not (AvatarModelFrame and AvatarModelFrame:IsShown()) then return; end
+	local token = (self._reactionToken or 0) + 1;
+	self._reactionToken = token;
+	self._deadHold = (anim == DEATH_ANIM) or nil;
+	AvatarModelFrame:SetAnimation(anim);
+	local function Done()
+		if self._reactionToken ~= token then return; end
+		if self._deadHold then
+			AvatarModelFrame:SetScript("OnAnimFinished", nil);
+			AvatarModelFrame:SetAnimation(DEAD_ANIM);
+		else
+			self._reactionToken = nil;
+			self:ApplyAnimation();
+		end
+	end
+	AvatarModelFrame:SetScript("OnAnimFinished", function()
+		C_Timer.After(0, Done);
+	end);
+	-- An animation the model cannot play may never report finishing.
+	C_Timer.After(6, Done);
+end
+
+-- Alive again: stand back up into the configured pose.
+function Addon:EndDeathReaction()
+	if not self._deadHold then return; end
+	self._deadHold = nil;
+	self._reactionToken = nil;
+	self:ApplyAnimation();
+end
+
+-- The reaction configured for `event` ("keystone", "achievement", ...).
+function Addon:React(event)
+	local r = self.db and self.db.profile and self.db.profile.reactions;
+	if not (r and r.enabled) then return; end
+	self:PlayReaction(r[event]);
+end
+
+-- ============================================================================
+-- Outfit per specialization
+-- ============================================================================
+function Addon:CurrentSpecID()
+	return PlayerUtil and PlayerUtil.GetCurrentSpecID and PlayerUtil.GetCurrentSpecID() or nil;
+end
+
+-- Put on the outfit remembered for the current spec, if there is one.
+function Addon:ApplySpecOutfit()
+	local char = self.db and self.db.char;
+	if not (char and char.outfitPerSpec) then return; end
+	local spec = self:CurrentSpecID();
+	local saved = spec and char.outfitBySpec[spec];
+	if saved == nil then return; end -- nothing chosen for this spec yet
+	if saved then
+		char.outfitPreview.enabled = true;
+		char.outfitPreview.customSetID = saved;
+	else
+		char.outfitPreview.enabled = false;
+	end
+	self:RefreshEquipmentToggle();
+	if self.previewModel then self:RefreshEquipmentOnModel(self.previewModel); end
+	if self.RefreshOutfitsList then self:RefreshOutfitsList(); end
 end
 
 -- The aura that strips the avatar down, inherited from the original addon.
