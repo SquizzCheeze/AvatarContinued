@@ -927,6 +927,25 @@ function Addon:CurrentSpecID()
 	return PlayerUtil and PlayerUtil.GetCurrentSpecID and PlayerUtil.GetCurrentSpecID() or nil;
 end
 
+-- Your class's specs as { id, name, icon }, in spec-tab order.
+function Addon:PlayerSpecs()
+	local list = {};
+	local info = (C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo) or GetSpecializationInfo;
+	if not info then return list; end
+	for slot = 1, 4 do
+		local id, name, _, icon = info(slot);
+		if not id or id == 0 then break; end
+		list[#list + 1] = { id = id, name = name or ("Spec " .. slot), icon = icon };
+	end
+	return list;
+end
+
+-- The spec the Outfits list is choosing for: the one picked in its spec row,
+-- else the one you are in. Not saved: every session starts on yours.
+function Addon:OutfitEditSpec()
+	return self.outfitEditSpec or self:CurrentSpecID();
+end
+
 -- Put on the outfit remembered for the current spec, if there is one.
 function Addon:ApplySpecOutfit()
 	local char = self.db and self.db.char;

@@ -47,10 +47,33 @@ local ANIMATION_OPTIONS = {
     { text = "Spell Cast", value = 48 },
     { text = "Talk",       value = 60 },
     { text = "Dance",      value = 69 },
+    -- Emotes, by AnimationData id: the table 60 (EmoteTalk) and 69
+    -- (EmoteDance) above come from. Loops (Sit, Lie Down, Kneel) hold as a
+    -- pose; the rest play once and repeat. A model without one of them
+    -- stands still -- /avatar anim <id> tries any id.
+    { text = "Wave",       value = 67  },
+    { text = "Cheer",      value = 68  },
+    { text = "Laugh",      value = 70  },
+    { text = "Applaud",    value = 80  },
+    { text = "Bow",        value = 66  },
+    { text = "Salute",     value = 113 },
+    { text = "Flex",       value = 82  },
+    { text = "Point",      value = 84  },
+    { text = "Roar",       value = 74  },
+    { text = "Shout",      value = 81  },
+    { text = "Cry",        value = 77  },
+    { text = "Shy",        value = 83  },
+    { text = "Kiss",       value = 76  },
+    { text = "Beg",        value = 79  },
+    { text = "Rude",       value = 73  },
+    { text = "Chicken",    value = 78  },
+    { text = "Sit",        value = 97  },
+    { text = "Kneel",      value = 115 },
+    { text = "Lie Down",   value = 100 },
 };
 
 -- Reactions choose from the poses above plus Death (1, lying down until you
--- are alive again) and None. Only verified ids -- /avatar anim tries others.
+-- are alive again) and None.
 local REACTION_OPTIONS = { { text = "None", value = -1 } };
 for _, o in ipairs(ANIMATION_OPTIONS) do REACTION_OPTIONS[#REACTION_OPTIONS + 1] = o; end
 REACTION_OPTIONS[#REACTION_OPTIONS + 1] = { text = "Death", value = 1 };
@@ -736,6 +759,10 @@ local function CreateAVDropdown(parent, variable, label, tooltip, entries)
     end
 
     dd:SetupMenu(function(_, rootDescription)
+        -- The animation lists run to ~26 entries; scroll past 20.
+        if #entries > 20 and rootDescription.SetScrollMode then
+            rootDescription:SetScrollMode(20 * 20);
+        end
         for _, entry in ipairs(entries) do
             rootDescription:CreateRadio(entry.text, IsSelected, SetSelected, entry.value);
         end
@@ -1216,6 +1243,15 @@ function Addon:RefreshOutfitsList()
     local charData = self.db.char;
     local activeCustomSetID = charData.outfitPreview and charData.outfitPreview.enabled and charData.outfitPreview.customSetID or nil;
 
+    -- Choosing for a spec you are not in: the list shows and sets that spec's
+    -- saved outfit, and the avatar keeps what it is wearing.
+    local editSpec = charData.outfitPerSpec and self:OutfitEditSpec() or nil;
+    local editingOther = editSpec ~= nil and editSpec ~= self:CurrentSpecID();
+    if editingOther then
+        activeCustomSetID = charData.outfitBySpec[editSpec] or nil;
+    end
+    if self.outfitSpecRow then self.outfitSpecRow:Refresh(); end
+
     local function CreateOutfitRow(label, icon, customSetID)
         local row = CreateFrame("Button", nil, content);
         row:SetSize(354, OUTFIT_ROW_HEIGHT - 2);
@@ -1245,6 +1281,11 @@ function Addon:RefreshOutfitsList()
         text:SetText(label);
 
         row:SetScript("OnClick", function()
+            if editingOther then
+                charData.outfitBySpec[editSpec] = customSetID or false;
+                Addon:RefreshOutfitsList();
+                return;
+            end
             if customSetID then
                 charData.outfitPreview.enabled = true;
                 charData.outfitPreview.customSetID = customSetID;
@@ -1276,7 +1317,13 @@ function Addon:RefreshOutfitsList()
     local y = 0;
     local noneRow = CreateOutfitRow("Show Equipped Gear (No Preview)", nil, nil);
     noneRow:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y);
-    noneRow.selectedTex:SetShown(not activeCustomSetID);
+    -- A spec with nothing chosen yet (nil) highlights no row: its switch
+    -- leaves the outfit alone, which is not the same as equipped gear.
+    if editingOther then
+        noneRow.selectedTex:SetShown(charData.outfitBySpec[editSpec] == false);
+    else
+        noneRow.selectedTex:SetShown(not activeCustomSetID);
+    end
     table.insert(outfitRows, noneRow);
     y = y - OUTFIT_ROW_HEIGHT;
 
@@ -1332,14 +1379,80 @@ function Addon:BuildOutfitsSettings(parent, sy)
                 char.outfitBySpec[spec] = (p.enabled and p.customSetID) or false;
             end
         end
+        Addon.outfitEditSpec = nil;
+        Addon:RefreshOutfitsList();
     end);
     perSpec:SetScript("OnEnter", function(cb)
         GameTooltip_SetDefaultAnchor(GameTooltip, cb);
         GameTooltip:SetText("Outfit per specialization", 1, 1, 1);
-        GameTooltip:AddLine("Pick an outfit while in each spec; switching spec puts that spec's outfit back on.", nil, nil, nil, true);
+        GameTooltip:AddLine("Choose a spec with the icons below, then its outfit from the list - no need to switch spec to set one up. Switching spec puts that spec's outfit on.", nil, nil, nil, true);
         GameTooltip:Show();
     end);
     perSpec:SetScript("OnLeave", function() GameTooltip:Hide(); end);
+    sy = sy - 32;
+
+    -- Which spec the list below is choosing for, so every spec can be set up
+    -- without switching to it. Starts on the spec you are in; see
+    -- Addon:OutfitEditSpec and RefreshOutfitsList.
+    local specRow = CreateFrame("Frame", nil, parent);
+    specRow:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, sy);
+    specRow:SetSize(366, 28);
+    local specCaption = specRow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall");
+    specCaption:SetPoint("LEFT", specRow, "LEFT", 0, 0);
+    specCaption:SetText("Choosing for:");
+    local specName = specRow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
+    specName:SetJustifyH("LEFT");
+    local specButtons = {};
+    local prev = specCaption;
+    for _, s in ipairs(Addon:PlayerSpecs()) do
+        local b = CreateFrame("Button", nil, specRow);
+        b:SetSize(24, 24);
+        b:SetPoint("LEFT", prev, "RIGHT", prev == specCaption and 8 or 4, 0);
+        b.icon = b:CreateTexture(nil, "ARTWORK");
+        b.icon:SetAllPoints();
+        b.icon:SetTexture(s.icon);
+        b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92);
+        b.ring = b:CreateTexture(nil, "OVERLAY");
+        b.ring:SetPoint("TOPLEFT", -2, 2);
+        b.ring:SetPoint("BOTTOMRIGHT", 2, -2);
+        b.ring:SetColorTexture(0.78, 0.65, 0.30, 0.9);
+        b.ring:SetDrawLayer("BACKGROUND");
+        local hl = b:CreateTexture(nil, "HIGHLIGHT");
+        hl:SetAllPoints();
+        hl:SetColorTexture(1, 1, 1, 0.15);
+        b.spec = s;
+        b:SetScript("OnClick", function()
+            Addon.outfitEditSpec = s.id;
+            Addon:RefreshOutfitsList();
+        end);
+        b:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP");
+            GameTooltip:SetText(s.name, 1, 1, 1);
+            GameTooltip:AddLine("Choose this spec's outfit from the list below.", nil, nil, nil, true);
+            GameTooltip:Show();
+        end);
+        b:SetScript("OnLeave", function() GameTooltip:Hide(); end);
+        specButtons[#specButtons + 1] = b;
+        prev = b;
+    end
+    specName:SetPoint("LEFT", prev, "RIGHT", 8, 0);
+    specName:SetPoint("RIGHT", specRow, "RIGHT", 0, 0);
+
+    self.outfitSpecRow = specRow;
+    function specRow:Refresh()
+        local on = Addon.db.char.outfitPerSpec and #specButtons > 0;
+        self:SetShown(on and true or false);
+        if not on then return; end
+        local editing, current = Addon:OutfitEditSpec(), Addon:CurrentSpecID();
+        for _, b in ipairs(specButtons) do
+            local sel = b.spec.id == editing;
+            b.ring:SetShown(sel);
+            b.icon:SetDesaturated(not sel);
+            if sel then
+                specName:SetText(b.spec.name .. (b.spec.id == current and " |cff888888(current)|r" or ""));
+            end
+        end
+    end
     sy = sy - 32;
 
     CreateDivider(parent, sy);
