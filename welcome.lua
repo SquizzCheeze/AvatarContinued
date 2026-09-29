@@ -26,7 +26,8 @@ if not Addon then return; end
 local RELEASE_NOTES = {
     ["1.11"] = {
         "Your avatar reacts to what happens: it dances when you finish a key or earn an achievement and falls down when you die. Change or turn off each reaction under Animation.",
-        "A different outfit for each specialization: tick the option under Outfits and pick an outfit in each spec.",
+        "A different outfit for each specialization: tick the option under Outfits, pick a spec from its icons and choose its outfit, with a preview, without switching spec.",
+        "19 new animations for your pose and reactions, including Wave, Cheer, Laugh, Salute, Sit, Kneel and Lie Down.",
     },
     ["1.10"] = {
         "Fixed the avatar sometimes ignoring your Avatar Opacity and showing at full opacity.",
