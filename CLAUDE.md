@@ -32,6 +32,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **`OnAnimFinished` restarts the animation on the next frame**, never inside the handler, for the same reason.
 - **Model alpha does not survive every rebuild.** Every path that changes the model re-applies `SetModelAlpha` straight afterwards, yet the avatar intermittently came back at full opacity with no pinnable trigger (V1.10): a piece that finishes loading later can reset it with no `OnModelLoaded` to answer. `AlphaWatch` (a 1s `OnUpdate` hooked in `AvatarModelFrame_OnLoad`) re-asserts the configured alpha while shown and below 1 — unconditionally, since `GetModelAlpha` may keep reporting the stored value after the reset. The nested `OnModelLoaded` also applies alpha before its re-entrancy bail. User-confirmed holding; if it ever recurs, the watch was a symptom fix, not the cause.
 
+## Animations and reactions (V1.11)
+
+- **Animations are AnimationData ids, never emote tokens.** `SetAnimation` takes a number; there is no by-name lookup, which is why "cheer" typed into anything does nothing. `ANIMATION_OPTIONS` in `settings.lua` is the one list (pose menu, and the reaction menus via `REACTION_OPTIONS`, which adds None `-1` and Death `1`). The emotes follow the AnimationData table that 60 (EmoteTalk) and 69 (EmoteDance) come from: Bow 66, Wave 67, Cheer 68, Laugh 70, Rude 73, Roar 74, Kiss 76, Cry 77, Chicken 78, Beg 79, Applaud 80, Shout 81, Flex 82, Shy 83, Point 84, Sit 97 (SitGround loop), Lie Down 100 (Sleep loop), Salute 113, Kneel 115 (KneelLoop). All user-confirmed in game 2026-09-29. "Spell Cast" is 48 by user test, not the table's 32 -- leave it. `/avatar anim <id>` tries any id; a model lacking one just stands still.
+- **Reactions** (`profile.reactions`, `Addon:React(event)` -> `PlayReaction`): keystone/achievement default 69, levelUp 48, death 1 then held on Dead (6) by `_deadHold` until `EndDeathReaction`. A reaction token guards stale `OnAnimFinished` callbacks, and a 6s timer ends one the model cannot play (it may never report finishing).
+
+## Outfit per specialization (V1.11)
+
+- `char.outfitPerSpec` + `char.outfitBySpec[specID]` = customSetID, `false` (equipped gear) or nil (nothing chosen: switching leaves the outfit alone -- NOT the same as `false`, and the list highlights no row for it). `ApplySpecOutfit` runs on spec change.
+- The Outfits page has a spec-icon row (`Addon:PlayerSpecs()`, `Addon.outfitEditSpec`, session-only) to set up any spec without switching. Choosing for another spec ONLY saves; it never touches `outfitPreview` or the avatar.
+- **The settings preview shows that spec's outfit through a PER-MODEL override**: `model._avatarOutfitOverride` (customSetID / false / nil), resolved by `Addon:ModelOutfit(model)`, which `GetAppearanceSourceList(model)` and `CaptureBaseline` both use. The baseline check matters: the two models share one `_baselineTransmogInfo`, and capturing from a model wearing an override outfit would store the outfit as the player's real gear (the old "Show Equipped Gear does nothing" bug). Anything new that asks "is an outfit showing" about a specific model must ask `ModelOutfit(model)`, not `IsOutfitPreviewActive()`.
+
 ## 12.1 rules this addon has already hit
 
 - **Auras are secret while restrictions are in effect** (combat, encounters, M+, PvP). `C_UnitAuras.GetPlayerAuraBySpellID` is `SecretWhenUnitAuraRestricted` + `RequiresNonSecretAura`, so it returns *nothing* then. `Addon:PlayerHasAura` returns `nil` ("unknown") via `C_Secrets.ShouldAurasBeSecret`/`ShouldSpellAuraBeSecret`; callers must treat nil as "leave it alone", not "no aura".
@@ -76,6 +87,8 @@ Three failure modes a green checkmark will not show (all hit on the sibling addo
 - **`actions/upload-artifact` skips hidden paths** and the packager builds into `.release/`; the workflow sets `include-hidden-files: true`.
 - **`release.sh` skips a missing token silently and exits 0.** Look for `CurseForge ID: 1533608 [token set]` in the log; no suffix means the token is empty. The dry run also prints both secrets' lengths. But a green run with nothing on CurseForge's *public* API is not proof of a missing token: new files sit in approval and are invisible there. Check the author dashboard first.
 
+Last shipped: **v1.11 (2026-09-29)**. The next change starts by moving its section into `CHANGELOG-ARCHIVE.txt` and opening V1.12.
+
 Tags list newest-first because the repo sets `git config tag.sort -creatordate` (local config; re-run it in a fresh clone). Versions like `1.10` sort before `1.9` alphabetically.
 
 ## Slash commands
@@ -88,4 +101,5 @@ Tags list newest-first because the repo sets `git config tag.sort -creatordate` 
 | `/avatar equip <link\|itemID\|itemID:bonusID>` | Try an item on the avatar |
 | `/avatar unlock`, `/avatar lock` | Unlock to move/resize/rotate with the mouse |
 | `/avatar notes` (or `changelog`) | Re-open the current release notes |
+| `/avatar anim <id>` | Play any AnimationData id on the avatar, to find new ones |
 | `/avatar help` | Usage |
