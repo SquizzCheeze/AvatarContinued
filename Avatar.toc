@@ -1,4 +1,4 @@
-## Interface: 120100, 120105
+## Interface: 120105
 ## Title: Avatar Continued
 ## Notes: Show your character model as a part of your UI
 ## Author: SquizzCheeze
