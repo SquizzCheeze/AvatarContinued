@@ -1,10 +1,9 @@
-## Interface: 120105
+## Interface: 120105, 16001
 ## Title: Avatar Continued
 ## Notes: Show your character model as a part of your UI
 ## Author: SquizzCheeze
-## Version: 1.11
+## Version: 1.12
 ## X-Curse-Project-ID: 1533608
-## X-Flavor: Mainline
 ## OptionalDeps: Ace3
 ## SavedVariables: AvatarDB
 

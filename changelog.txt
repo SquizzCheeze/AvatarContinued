@@ -1,6 +1,12 @@
 Avatar Continued Changelog
 ==========================
 
+V1.12
+
+Added:
+
+- Avatar Continued now runs on WoW Forever as well as retail.
+
 V1.11
 
 Added:

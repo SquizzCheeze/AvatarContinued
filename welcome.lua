@@ -24,6 +24,9 @@ if not Addon then return; end
 -- ADD AN ENTRY AS PART OF RELEASING -- see CLAUDE.md's Releasing section.
 -- A version with no entry still shows the update note, just without bullets.
 local RELEASE_NOTES = {
+    ["1.12"] = {
+        "Now runs on WoW Forever as well as retail.",
+    },
     ["1.11"] = {
         "Your avatar reacts to what happens: it dances when you finish a key or earn an achievement and falls down when you die. Change or turn off each reaction under Animation.",
         "A different outfit for each specialization: tick the option under Outfits, pick a spec from its icons and choose its outfit, with a preview, without switching spec.",
