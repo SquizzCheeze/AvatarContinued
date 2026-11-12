@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Blizzard UI source
+
+Blizzard's UI source is at C:\dev\wow-ui-source. Search it to verify any API, event or mixin before using it. It is a local git clone; check which branch is checked out (`git -C C:\dev\wow-ui-source branch`) before trusting it for a PTR or Forever question.
+
 ## Project Overview
 
 **Avatar Continued** displays the player's character model on screen as a decorative UI element. It revives the 8.0-era Avatar addon for WoW 12.1, with the original author's permission, so parts of it are old code patched forward: expect to verify anything API-related rather than trust it.
