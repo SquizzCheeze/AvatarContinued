@@ -24,6 +24,9 @@ if not Addon then return; end
 -- ADD AN ENTRY AS PART OF RELEASING -- see CLAUDE.md's Releasing section.
 -- A version with no entry still shows the update note, just without bullets.
 local RELEASE_NOTES = {
+    ["1.13"] = {
+        "WoW Forever: your chosen profile (such as the Global Profile) now stays chosen after a /reload.",
+    },
     ["1.12"] = {
         "Now runs on WoW Forever as well as retail.",
     },

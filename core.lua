@@ -13,6 +13,37 @@ local function GetCurrentResolutionSize()
 	return GetScreenWidth(), GetScreenHeight();
 end
 
+-- WoW Forever: move this character's saved keys to the name AceDB now uses.
+--
+-- AceDB-3.0 up to MINOR 35 keyed a character "Name - Realm". MINOR 40 keys it
+-- "Name Surname" wherever RegionalUniqueNamesEnabled() is true, which is
+-- Forever (retail is unaffected: there both versions build "Name - Realm").
+-- The newest loaded copy wins, so with ElvUI, Plater or Zygor installed our old
+-- copy created the database under the old key and their newer one then saved
+-- every profile switch under the new key: "Use Global Profile" reverted on
+-- each /reload (user report 2026-11-16). We now ship MINOR 40 ourselves, so
+-- both sides agree; this carries over what was saved under the old key.
+--
+-- Where both keys exist, the NEW one wins: it holds the last profile picked
+-- through the newer library (the Global Profile tick in that report).
+-- Must run BEFORE AceDB:New, which would otherwise create a fresh entry.
+function Addon:MigrateForeverCharKey()
+	if type(AvatarDB) ~= "table" then return end
+	if not (RegionalUniqueNamesEnabled and RegionalUniqueNamesEnabled()) then return end
+	local name, surname = UnitNameUnmodified("player");
+	if not name or not surname or surname == "" then return end
+	local newKey = name .. " " .. surname;
+	local oldKey = UnitName("player") .. " - " .. GetRealmName();
+	if newKey == oldKey then return end
+	for _, section in ipairs({"profileKeys", "char"}) do
+		local t = AvatarDB[section];
+		if type(t) == "table" and t[oldKey] ~= nil then
+			if t[newKey] == nil then t[newKey] = t[oldKey]; end
+			t[oldKey] = nil;
+		end
+	end
+end
+
 function Addon:OnInitialize()
 	-- Does this player already have saved settings? welcome.lua uses it to
 	-- tell a new install from an update. It has to be read HERE, first thing:
@@ -159,6 +190,7 @@ function Addon:OnInitialize()
 		},
 	};
 
+	Addon:MigrateForeverCharKey();
 	self.db = LibStub("AceDB-3.0"):New("AvatarDB", defaults);
 	self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged");
 	self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged");
