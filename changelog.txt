@@ -1,10 +1,16 @@
 Avatar Continued Changelog
 ==========================
 
-V1.13
+V1.14
 
-Fixed:
+Added:
 
-- WoW Forever: "Use Global Profile" (or any other profile you picked) no
-  longer switches back to your character's own profile after a /reload
-  when another addon such as ElvUI, Plater or Zygor is also installed.
+- Dressing Room (a new page in /avatar): try on any appearance in the game,
+  collected or not, one slot at a time, and save the result as a look.
+  Saved looks appear on the Outfits page and can be worn like any outfit,
+  per specialization too. Looks are shared by all your characters.
+- The Dressing Room can also try on the game's armour sets, a whole set at
+  once.
+- WoW Forever: the game only draws appearances your character could
+  display (mostly your class's armour types). Those it won't draw are
+  dimmed in the Dressing Room, and a slot holding one turns red.

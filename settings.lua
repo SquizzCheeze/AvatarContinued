@@ -10,6 +10,7 @@ local CATEGORIES = {
     { key = "general",       label = "General",       icon = nil },
     { key = "display",       label = "Display",       icon = nil },
     { key = "outfits",       label = "Outfits",       icon = nil },
+    { key = "dressing",      label = "Dressing Room", icon = nil },
     { key = "frame_settings",label = "Frame Settings", icon = nil },
     { key = "misc",          label = "Miscellaneous",  icon = nil },
     { key = "animation",     label = "Animation",      icon = nil },
@@ -517,6 +518,11 @@ function AvatarSettingsCategoryButton_OnClick(self)
         else
             group:Hide();
         end
+    end
+
+    -- The Dressing Room dresses the preview in its draft look while open.
+    if Addon.SetDressingRoomActive then
+        Addon:SetDressingRoomActive(categoryKey == "dressing");
     end
 end
 
@@ -1106,6 +1112,7 @@ function Addon:CreateSettingsPanel()
     buildGroup("general", function(g, y) return self:BuildGeneralSettings(g, y); end);
     buildGroup("display", function(g, y) return self:BuildDisplaySettings(g, y); end);
     buildGroup("outfits", function(g, y) return self:BuildOutfitsSettings(g, y); end);
+    buildGroup("dressing", function(g, y) return self:BuildDressingRoom(g, y); end);
     buildGroup("frame_settings", function(g, y) return self:BuildFrameSettings(g, y); end);
     buildGroup("misc", function(g, y) return self:BuildMiscSettings(g, y); end);
     buildGroup("animation", function(g, y) return self:BuildAnimationSettings(g, y); end);
@@ -1250,13 +1257,18 @@ function Addon:RefreshOutfitsList()
     if editingOther then
         activeCustomSetID = charData.outfitBySpec[editSpec] or nil;
     end
+    -- A deleted Dressing Room look shows (and highlights) as equipped gear.
+    if type(activeCustomSetID) == "string" and not self:GetLook(activeCustomSetID) then
+        activeCustomSetID = nil;
+    end
     if self.outfitSpecRow then self.outfitSpecRow:Refresh(); end
 
     -- The preview model wears the spec being chosen for (Addon:ModelOutfit);
     -- the avatar on screen keeps yours. A spec with nothing chosen (nil)
     -- would keep the current outfit on switching, so it previews that.
     local pm = self.previewModel;
-    if pm then
+    -- Not while the Dressing Room has the preview wearing its draft.
+    if pm and not self.dressingRoomActive then
         local override = nil;
         if editingOther then override = charData.outfitBySpec[editSpec]; end
         if pm._avatarOutfitOverride ~= override then
@@ -1340,11 +1352,39 @@ function Addon:RefreshOutfitsList()
     table.insert(outfitRows, noneRow);
     y = y - OUTFIT_ROW_HEIGHT;
 
+    -- Looks from the Dressing Room page, before the game's outfits.
+    -- Headers are frames, not bare FontStrings, since the rows are dropped
+    -- with SetParent(nil) on every refresh.
+    local function ListHeader(text)
+        local f = CreateFrame("Frame", nil, content);
+        f:SetSize(354, 20);
+        f:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y - 4);
+        local fs = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
+        fs:SetPoint("LEFT", f, "LEFT", 4, 0);
+        fs:SetText(text);
+        fs:SetTextColor(0.78, 0.65, 0.30, 1);
+        table.insert(outfitRows, f);
+        y = y - 24;
+    end
+
+    local lookIDs = self:SortedLookIDs();
+    if #lookIDs > 0 then
+        ListHeader("Dressing Room Looks");
+        for _, id in ipairs(lookIDs) do
+            local look = self:GetLook(id);
+            local row = CreateOutfitRow(look.name or "Look", self:LookIcon(look), id);
+            row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y);
+            table.insert(outfitRows, row);
+            y = y - OUTFIT_ROW_HEIGHT;
+        end
+        ListHeader("Wardrobe Outfits");
+    end
+
     local customSets = C_TransmogCollection.GetCustomSets() or {};
     if #customSets == 0 then
         local emptyText = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall");
         emptyText:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y - 6);
-        emptyText:SetText("No saved outfits yet. Save one from the in-game Wardrobe (Dressing Room).");
+        emptyText:SetText("No saved outfits yet. Save one from the in-game Wardrobe, or make a look on the Dressing Room page.");
         emptyText:SetWidth(354);
         emptyText:SetJustifyH("LEFT");
         table.insert(outfitRows, emptyText);

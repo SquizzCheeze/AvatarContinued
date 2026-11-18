@@ -10,6 +10,14 @@ deleted. This file is in the .pkgmeta ignore list, so it never ships.
 Avatar Continued 1.0 to 1.6 shipped before this repository existed and have no
 notes here.
 
+V1.13 (2026-11-16)
+
+Fixed:
+
+- WoW Forever: "Use Global Profile" (or any other profile you picked) no
+  longer switches back to your character's own profile after a /reload
+  when another addon such as ElvUI, Plater or Zygor is also installed.
+
 V1.12 (2026-11-05)
 
 Added:

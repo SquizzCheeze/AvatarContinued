@@ -188,6 +188,17 @@ function Addon:OnInitialize()
 			outfitPerSpec = false,
 			outfitBySpec = {},
 		},
+
+		-- Looks made in the Dressing Room (dressingroom.lua). Account-wide:
+		-- they hold any appearance, collected or not, so they are not the
+		-- game's outfits and live only here. ["look:<n>"] = { name, slots =
+		-- { [slotID] = { appearanceID, secondaryAppearanceID, illusionID } or
+		-- false for an empty slot } }. Chosen through the same customSetID
+		-- fields as an outfit, as the string key (game outfit IDs are numbers).
+		global = {
+			looks = {},
+			nextLookID = 1,
+		},
 	};
 
 	Addon:MigrateForeverCharKey();
@@ -725,6 +736,9 @@ local SLOT_SHOW_FLAGS = {
 	[19] = {"tabard"},
 };
 
+-- The slots a Dressing Room look covers are exactly the ones drawn here.
+Addon.LOOK_SLOT_FLAGS = SLOT_SHOW_FLAGS;
+
 local MAINHAND_SLOT = INVSLOT_MAINHAND or 16;
 
 function Addon:IsSlotShown(slotID)
@@ -750,8 +764,43 @@ end
 function Addon:ModelOutfit(model)
 	local override = model and model._avatarOutfitOverride;
 	if override ~= nil then return override or nil; end
-	if Addon:IsOutfitPreviewActive() then return Addon.db.char.outfitPreview.customSetID; end
+	if Addon:IsOutfitPreviewActive() then
+		local id = Addon.db.char.outfitPreview.customSetID;
+		-- A look deleted (perhaps from another character) counts as real
+		-- gear, or CaptureBaseline would wait on it forever.
+		if type(id) == "string" and not Addon:GetLook(id) then return nil; end
+		return id;
+	end
 	return nil;
+end
+
+-- ============================================================================
+-- Dressing Room looks (dressingroom.lua builds them)
+-- ============================================================================
+
+-- The id the Dressing Room's in-progress look goes by, as a model's outfit
+-- override. Only the settings preview ever wears it.
+Addon.DRAFT_LOOK = "draft";
+
+function Addon:GetLook(id)
+	if id == Addon.DRAFT_LOOK then return Addon.lookDraft and { slots = Addon.lookDraft } or nil; end
+	local looks = Addon.db and Addon.db.global and Addon.db.global.looks;
+	return looks and looks[id] or nil;
+end
+
+-- Every look slot as a list ApplyAppearance can use: an ItemTransmogInfo, or
+-- false for a slot the look leaves empty.
+function Addon:LookTransmogList(look)
+	local list = {};
+	for slotID in pairs(Addon.LOOK_SLOT_FLAGS) do
+		local s = look.slots and look.slots[slotID];
+		if type(s) == "table" and (s[1] or 0) ~= 0 then
+			list[slotID] = Addon:MakeTransmogInfo(s[1], s[2], s[3]);
+		else
+			list[slotID] = false;
+		end
+	end
+	return list;
 end
 
 -- Deep-copies an ItemTransmogInfo list by value.
@@ -761,25 +810,26 @@ end
 -- step with the model, so after applying an outfit the baseline WAS the
 -- outfit and switching back to real gear did nothing. Copying the three
 -- fields into fresh ItemTransmogInfo objects freezes the values.
+-- A fresh ItemTransmogInfo. appearanceID is an itemModifiedAppearanceID (a
+-- "source"), as in every ItemTransmogInfo.
+function Addon:MakeTransmogInfo(appearanceID, secondaryAppearanceID, illusionID)
+	if CreateAndInitFromMixin and ItemTransmogInfoMixin then
+		return CreateAndInitFromMixin(ItemTransmogInfoMixin,
+			appearanceID or 0, secondaryAppearanceID or 0, illusionID or 0);
+	end
+	-- Plain-table fallback; SetItemTransmogInfo reads these fields.
+	return {
+		appearanceID = appearanceID or 0,
+		secondaryAppearanceID = secondaryAppearanceID or 0,
+		illusionID = illusionID or 0,
+	};
+end
+
 local function CopyTransmogInfoList(list)
 	local copy = {};
 	for slotID, info in pairs(list) do
 		if type(info) == "table" then
-			local new;
-			if CreateAndInitFromMixin and ItemTransmogInfoMixin then
-				new = CreateAndInitFromMixin(ItemTransmogInfoMixin,
-					info.appearanceID or 0,
-					info.secondaryAppearanceID or 0,
-					info.illusionID or 0);
-			else
-				-- Plain-table fallback; SetItemTransmogInfo reads these fields.
-				new = {
-					appearanceID = info.appearanceID or 0,
-					secondaryAppearanceID = info.secondaryAppearanceID or 0,
-					illusionID = info.illusionID or 0,
-				};
-			end
-			copy[slotID] = new;
+			copy[slotID] = Addon:MakeTransmogInfo(info.appearanceID, info.secondaryAppearanceID, info.illusionID);
 		end
 	end
 	return copy;
@@ -819,7 +869,10 @@ end
 -- active outfit if one is selected, otherwise the player's real gear.
 function Addon:GetAppearanceSourceList(model)
 	local customSetID = Addon:ModelOutfit(model);
-	if customSetID then
+	if type(customSetID) == "string" then
+		local look = Addon:GetLook(customSetID);
+		if look then return Addon:LookTransmogList(look); end
+	elseif customSetID then
 		local ok, list = pcall(C_TransmogCollection.GetCustomSetItemTransmogInfoList, customSetID);
 		if ok and list then return list; end
 		-- Outfit data not cached yet (common right after login). Fall through
@@ -858,17 +911,47 @@ function Addon:ApplyAppearance(model)
 	local source = Addon:GetAppearanceSourceList(model);
 	if not source then return; end
 
+	-- The Dressing Room shows every slot whatever the Display toggles say:
+	-- trying on a helm with "Always Hide Helm" on would show nothing.
+	local dressing = Addon:ModelOutfit(model) == Addon.DRAFT_LOOK;
+	-- What the model said about each slot (Enum.ItemTryOnReason), for the
+	-- Dressing Room's tooltips. DataPending means the item's model data has
+	-- not arrived yet: nothing is drawn, and nothing tells us when it lands,
+	-- so the whole apply is retried shortly (a few times, then given up).
+	local results = {};
+	model._avatarTryOn = results;
+	local pending = false;
+	local PENDING = Enum and Enum.ItemTryOnReason and Enum.ItemTryOnReason.DataPending;
 	for slotID in pairs(SLOT_SHOW_FLAGS) do
-		if Addon:IsSlotShown(slotID) then
+		if dressing or Addon:IsSlotShown(slotID) then
 			local info = source[slotID];
-			if info then
+			if info == false then
+				-- A look's empty slot.
+				model:UndressSlot(slotID);
+			elseif info then
 				-- ignoreChildItems matches Blizzard: only the main hand
 				-- considers child items (paired/legion artifact offhands).
-				pcall(model.SetItemTransmogInfo, model, info, slotID, slotID ~= MAINHAND_SLOT);
+				local ok, result = pcall(model.SetItemTransmogInfo, model, info, slotID, slotID ~= MAINHAND_SLOT);
+				if ok then
+					results[slotID] = result;
+					if PENDING and result == PENDING then pending = true; end
+				end
 			end
 		else
 			model:UndressSlot(slotID);
 		end
+	end
+
+	if not pending then
+		model._avatarRetries = 0;
+	elseif not model._avatarRetryQueued and (model._avatarRetries or 0) < 10 then
+		model._avatarRetryQueued = true;
+		model._avatarRetries = (model._avatarRetries or 0) + 1;
+		C_Timer.After(0.5, function()
+			model._avatarRetryQueued = nil;
+			Addon:ApplyAppearance(model);
+			if Addon.DressingRoom and Addon.DressingRoom.Refresh then Addon.DressingRoom:Refresh(); end
+		end);
 	end
 end
 
