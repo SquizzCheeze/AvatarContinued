@@ -2,7 +2,7 @@
 ## Title: Avatar Continued
 ## Notes: Show your character model as a part of your UI
 ## Author: SquizzCheeze
-## Version: 1.13
+## Version: 1.14
 ## X-Curse-Project-ID: 1533608
 ## OptionalDeps: Ace3
 ## SavedVariables: AvatarDB

@@ -102,7 +102,7 @@ Three failure modes a green checkmark will not show (all hit on the sibling addo
 - **`actions/upload-artifact` skips hidden paths** and the packager builds into `.release/`; the workflow sets `include-hidden-files: true`.
 - **`release.sh` skips a missing token silently and exits 0.** Look for `CurseForge ID: 1533608 [token set]` in the log; no suffix means the token is empty. The dry run also prints both secrets' lengths. But a green run with nothing on CurseForge's *public* API is not proof of a missing token: new files sit in approval and are invisible there. Check the author dashboard first.
 
-Last shipped: **v1.13 (2026-11-16)**. The next change starts by moving its section into `CHANGELOG-ARCHIVE.txt` and opening V1.14.
+Last shipped: **v1.14 (2026-11-18)**, the Dressing Room. The next change starts by moving its section into `CHANGELOG-ARCHIVE.txt` and opening V1.15.
 
 **Bundled AceDB-3.0 must stay at least as new as other addons'** (MINOR 40 since v1.13, copied from Plater). The newest loaded copy takes over every database's methods, and MINOR 40 builds the character key differently on WoW Forever ("Name Surname" instead of "Name - Realm"): with an older copy here, the database loaded under one key and profile switches saved under the other, so the chosen profile reverted on every /reload. `Addon:MigrateForeverCharKey` (`core.lua`) carried existing Forever data across.
 

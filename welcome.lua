@@ -24,6 +24,10 @@ if not Addon then return; end
 -- ADD AN ENTRY AS PART OF RELEASING -- see CLAUDE.md's Releasing section.
 -- A version with no entry still shows the update note, just without bullets.
 local RELEASE_NOTES = {
+    ["1.14"] = {
+        "New Dressing Room page (/avatar): try on any appearance in the game, collected or not, and whole armour sets.",
+        "Save what you make as a look and wear it on your avatar from the Outfits page, per specialization too. Looks are shared by all your characters.",
+    },
     ["1.13"] = {
         "WoW Forever: your chosen profile (such as the Global Profile) now stays chosen after a /reload.",
     },
